@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<util:ModuleTitleWindow title="Resumo dos Serviços" xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:util="util.*" layout="absolute"  
+width="700" height="120">
+	<mx:Script>
+		<![CDATA[
+			import bean.ClienteBean;
+			import bean.ServicosBean;
+			import bean.TotalServicosBean;
+			
+			import mx.collections.ArrayCollection;
+			import mx.rpc.events.ResultEvent;
+			
+			import util.ProgressBarHelper;
+			
+
+			public function init (servicosBean:ArrayCollection):void{			
+				
+				serviceController.calcularTotalServicos(servicosBean);
+			}
+			
+			private function onResultCalcularTotalServicos (event:ResultEvent):void{
+				var total:TotalServicosBean = TotalServicosBean(event.result);
+				totalServicosTxt.text = String(total.servicosSelecionados);
+				totalTempoTxt.text = total.tempoTotal;
+				valorTxt.text = total.valorTotal;
+				
+			}	
+
+
+			protected function fecharBtn_clickHandler(event:MouseEvent):void
+			{
+				this.close();
+			}
+
+		]]>
+		
+	</mx:Script>
+	
+	
+	<mx:RemoteObject destination="service" invoke="{ProgressBarHelper.openProgressBar(this)}" id="serviceController" showBusyCursor="true" fault="ProgressBarHelper.erro(event, null);ProgressBarHelper.removeProgressBar()">
+		
+		<mx:method name="calcularTotalServicos" result="onResultCalcularTotalServicos(event);ProgressBarHelper.removeProgressBar()"/>
+		
+	</mx:RemoteObject>
+	
+	
+	<mx:VBox height="100%" width="100%">
+		<mx:HBox width="100%">
+			<mx:Label visible="false"/>
+		</mx:HBox>
+		
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Label text="Serviços selecionados:"/>
+			<mx:TextInput id="totalServicosTxt" width="40" editable="false"/>
+			<mx:Label text="Tempo de execução total:"/>
+			<mx:TextInput id="totalTempoTxt" width="100" editable="false"/>
+			<mx:Label text="Valor total:"/>
+			<mx:TextInput id="valorTxt" width="100" editable="false"/>			
+		</mx:HBox>
+		
+		<mx:HBox horizontalAlign="center" width="100%" verticalAlign="middle">
+			<mx:Button label="Fechar" id="fecharBtn" click="fecharBtn_clickHandler(event)"/>
+		</mx:HBox>
+		
+		</mx:VBox>
+</util:ModuleTitleWindow>

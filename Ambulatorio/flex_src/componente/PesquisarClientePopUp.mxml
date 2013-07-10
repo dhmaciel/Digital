@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<util:ModuleTitleWindow title="Pesquisar Cliente" xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:util="util.*" layout="absolute"  
+width="500" height="300">
+	<mx:Script>
+		<![CDATA[
+			import bean.ClienteBean;
+			import bean.TipoVeiculoBean;
+			import bean.VeiculoBean;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.ValidationResultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.validators.Validator;
+			
+			import util.AlertaUtil;
+			import util.ProgressBarHelper;
+
+			public var clienteBean:ClienteBean;			
+
+			public function init ():void{			
+				
+			}
+			
+			protected function ClienteGrid_doubleClickHandler(event:MouseEvent):void
+			{
+				if(clienteGrid.selectedIndex != -1){
+					
+					this.clienteBean = ClienteBean(clienteGrid.selectedItem);
+					
+					serviceController.findAllVeiculosCliente(clienteBean);
+				}else{
+					AlertaUtil.exibirAlerta("Pesquise primeiramente um cliente.","Alerta!");
+				}
+			}
+
+
+			protected function pesquisarClienteBtn_clickHandler(event:MouseEvent):void
+			{
+								
+				serviceController.findClienteBy(clienteTxt.text);
+			}
+			
+			private function onResultFindClienteBy (event:ResultEvent):void{
+				if(event.result != null){
+					clienteGrid.dataProvider = event.result;
+				}				
+				
+			}
+			
+			private function onResultFindAllVeiculosCliente (event:ResultEvent):void{
+				if(event.result != null){
+					
+					this.clienteBean.listVeiculoBean = ArrayCollection(event.result);
+					
+					this.close();
+				}
+			}
+
+		]]>
+		
+	</mx:Script>
+	
+	
+	<mx:RemoteObject destination="service" invoke="{ProgressBarHelper.openProgressBar(this)}" id="serviceController" showBusyCursor="true" fault="ProgressBarHelper.erro(event, null);ProgressBarHelper.removeProgressBar()">
+		
+		<mx:method name="findClienteBy" result="onResultFindClienteBy(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="findAllVeiculosCliente" result="onResultFindAllVeiculosCliente(event);ProgressBarHelper.removeProgressBar()"/>
+		
+	</mx:RemoteObject>
+	
+	
+	<mx:VBox height="100%" width="100%">
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Form cornerRadius="5" borderColor="#1E90FF" borderStyle="solid">
+				<mx:HBox>
+					
+				<mx:FormItem label="Nome/CPF" required="true">
+					<mx:TextInput  id="clienteTxt" toolTip="Digite o Nome ou CPF" maxChars="30"/>					
+					</mx:FormItem>	
+				<mx:VBox verticalGap="2" horizontalAlign="center" id="findUsuarioVBox">
+					<mx:Button id="pesquisarClienteBtn" label="Pesquisar" toolTip="Clique para pesquisar o cliente." click="pesquisarClienteBtn_clickHandler(event)"/> 
+				</mx:VBox>
+				</mx:HBox>
+				</mx:Form>			
+		</mx:HBox>
+		<mx:HBox width="100%" height="100%">
+			<mx:DataGrid width="100%" height="100%" id="clienteGrid" doubleClickEnabled="true" toolTip="Clique duas vezes para: Selecionar o cliente." doubleClick="ClienteGrid_doubleClickHandler(event)">
+				<mx:columns>
+					<mx:DataGridColumn headerText="Cliente" width="60" dataField="nome"/>											
+					<mx:DataGridColumn headerText="CPF" width="40" dataField="cpf"/>											
+																
+					
+				</mx:columns>
+			</mx:DataGrid>	
+			
+		</mx:HBox>
+		
+		
+		</mx:VBox>
+</util:ModuleTitleWindow>

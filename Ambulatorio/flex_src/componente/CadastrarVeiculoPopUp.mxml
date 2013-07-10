@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<util:ModuleTitleWindow title="Cadastrar Veículo" xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:util="util.*" layout="absolute"  
+width="700" height="400">
+	<mx:Script>
+		<![CDATA[
+			import bean.ClienteBean;
+			import bean.TipoVeiculoBean;
+			import bean.VeiculoBean;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.ValidationResultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.validators.Validator;
+			
+			import util.AlertaUtil;
+			import util.ProgressBarHelper;
+
+			
+			private var myValidators: Array;
+			private var idUsuario:Number = 15;
+			public var clienteBean:ClienteBean;
+			private var veiculo:VeiculoBean = new VeiculoBean();
+			private var isDoubleClickOnGrid:Boolean = false; // Flag que indica que o usuário quer editar o registro.
+
+			public function init (cliente:ClienteBean):void{
+				
+				myValidators = new Array();
+				myValidators.push(campoDescricao);
+				myValidators.push(campoTipoVeiculo);
+				
+				this.clienteBean = cliente;
+				
+				veiculoGrid.addEventListener("REMOVERVEICULO", removerVeiculo); 
+				
+				serviceController.findTipoVeiculo();
+				
+				//serviceController.findAllVeiculo(idUsuario);
+				
+				this.carregarGridVeiculo();			
+			}
+			
+			private function carregarGridVeiculo():void{
+				if(clienteBean != null){
+					//for(var i:Number = 0; i < clienteBean.listVeiculoBean.length; i++){
+						veiculoGrid.dataProvider = clienteBean.listVeiculoBean;
+					//}
+				}
+			}
+			
+			private function onResultFindTipoVeiculo(event:ResultEvent):void{
+				if(event.result != null){
+					tipoVeiculoCbx.dataProvider = event.result;
+				}else{
+					AlertaUtil.exibirAlerta('Ocorreu um erro ao buscar o tipo de veículo', 'Erro!');
+				}
+			}
+			
+
+			
+			private function removerVeiculo(ev: Event): void{
+				Alert.yesLabel = "Sim";
+				Alert.noLabel = "Não";
+				Alert.show("Deseja realmente apagar?", "Apagar", 3, this, alertClickHandler);
+				
+			}
+			
+			private function alertClickHandler (event:CloseEvent):void{
+				if (event.detail==Alert.YES) {				
+					veiculo = VeiculoBean(veiculoGrid.selectedItem);					
+					for(var i:Number = 0; i < clienteBean.listVeiculoBean.length; i++){
+						if(veiculo.descricao == VeiculoBean(clienteBean.listVeiculoBean.getItemAt(i)).descricao && veiculo.idTipoVeiculo == VeiculoBean(clienteBean.listVeiculoBean.getItemAt(i)).idTipoVeiculo){
+							//ArrayCollection(veiculoGrid.dataProvider).removeItemAt(veiculoGrid.selectedIndex);
+							clienteBean.listVeiculoBean.removeItemAt(i);
+							isDoubleClickOnGrid= false;
+							break;
+						}
+					}
+					
+				}
+				
+			}
+			
+			
+			protected function salvarBtn_clickHandler(event:MouseEvent):void
+			{
+				if(isCamposValidos()){
+					var veiculoAux:VeiculoBean = new VeiculoBean();
+					veiculoAux.descricao = descricaoTxt.text;
+					veiculoAux.idTipoVeiculo = TipoVeiculoBean(tipoVeiculoCbx.selectedItem).idTipoVeiculo;
+					if(isDoubleClickOnGrid == true){ // Flag que indica que o usuário quer editar o registro. 
+						VeiculoBean(clienteBean.listVeiculoBean.getItemAt(veiculoGrid.selectedIndex)).descricao = veiculoAux.descricao;
+						VeiculoBean(clienteBean.listVeiculoBean.getItemAt(veiculoGrid.selectedIndex)).idTipoVeiculo = veiculoAux.idTipoVeiculo;
+						veiculoGrid.dataProvider = null;
+						veiculoGrid.dataProvider = clienteBean.listVeiculoBean;
+						isDoubleClickOnGrid= false;
+					}else{
+					clienteBean.listVeiculoBean.addItem(veiculoAux);						
+					}
+					
+					//AlertaUtil.exibirAlertaOperacaoOk();
+					//veiculo.idVeiculo = idEmpresa;
+										
+					//serviceController.salvarCargo(veiculo);
+					
+				}else{
+					return;
+				}
+			}
+			
+			/*private function onResultSalvarCargo(event:ResultEvent):void{
+				if(event.result == true){
+					AlertaUtil.exibirAlertaOperacaoOk();
+					
+					this.limparCampo();
+					
+					serviceController.findAllCargos(idEmpresa);
+				}else{
+					AlertaUtil.exibirAlertaOperacaoErro();
+				}
+			}*/
+			
+			private function isCamposValidos():Boolean{
+				
+				var validatorErrorArray: Array = Validator.validateAll(myValidators);;
+				var isValidForm: Boolean = validatorErrorArray.length == 0;
+				
+				if (isValidForm) {
+					
+					return true;					
+					
+				} else {
+					var err: ValidationResultEvent;
+					var errorMessageArray: Array = [];
+					for each (err in validatorErrorArray) {
+						var errField: String = FormItem(err.currentTarget.source.parent).label
+						errorMessageArray.push(errField + " Este campo é obrigatório.");
+					}
+					Alert.show(errorMessageArray.join("\n\n"), "Formulário Inválido", Alert.OK);
+					//return false;
+				}
+				return false;
+			}
+
+
+			protected function veiculoGrid_doubleClickHandler(event:MouseEvent):void
+			{
+				if(veiculoGrid.selectedItem != null){
+				isDoubleClickOnGrid = true;
+					veiculo = VeiculoBean(veiculoGrid.selectedItem);
+					descricaoTxt.text = veiculo.descricao;
+					this.fixarTipoVeiculo();
+				}
+			}
+			
+			private function fixarTipoVeiculo():void{
+				var tipo:ArrayCollection = ArrayCollection(tipoVeiculoCbx.dataProvider);				
+				for(var i:int=0; i < tipo.length; i++){					
+					var tipoAux:TipoVeiculoBean = TipoVeiculoBean(tipo.getItemAt(i));
+					if(tipoAux.idTipoVeiculo == veiculo.idTipoVeiculo){
+						tipoVeiculoCbx.selectedIndex = i;
+						break;
+					}
+				}
+			}
+
+
+			protected function novoBtn_clickHandler(event:MouseEvent):void
+			{
+				this.limparCampo();
+			}
+			
+			private function limparCampo():void{
+				veiculo = new VeiculoBean();
+				tipoVeiculoCbx.selectedIndex = -1;
+				descricaoTxt.text = "";
+				isDoubleClickOnGrid= false;
+			}//
+
+		]]>
+		
+	</mx:Script>
+	
+	<mx:StringValidator id="campoDescricao" requiredFieldError="Este campo é obrigatório!" required="true" source="{descricaoTxt}" property="text" />
+	<mx:NumberValidator id="campoTipoVeiculo" source="{tipoVeiculoCbx}" lowerThanMinError="Este campo  obrigatório." property="selectedIndex" minValue="0" />
+	
+	<mx:RemoteObject destination="service" invoke="{ProgressBarHelper.openProgressBar(this)}" id="serviceController" showBusyCursor="true" fault="ProgressBarHelper.erro(event, null);ProgressBarHelper.removeProgressBar()">
+		
+		<mx:method name="findTipoVeiculo" result="onResultFindTipoVeiculo(event);ProgressBarHelper.removeProgressBar()"/>
+		<!--mx:method name="findAllCargos" result="onResultFindAllCargos(event);ProgressBarHelper.removeProgressBar()"/-->
+		<!--mx:method name="salvarCargo" result="onResultSalvarCargo(event);ProgressBarHelper.removeProgressBar()"/-->
+		
+	</mx:RemoteObject>
+	
+	
+	<mx:VBox height="100%" width="100%">
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Form cornerRadius="5" borderColor="#1E90FF" borderStyle="solid">
+				<mx:FormItem label="Veículo:" required="true">
+					<mx:TextInput  id="descricaoTxt" maxChars="30"/>
+					</mx:FormItem>				
+				<mx:FormItem label="Tipo Veículo:" required="true">
+					<mx:ComboBox id="tipoVeiculoCbx" prompt="Selecione" labelField="descricao"/>			
+				</mx:FormItem>
+				</mx:Form>			
+		</mx:HBox>
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Button label="Salvar" id="salvarBtn" click="salvarBtn_clickHandler(event)"/>
+			<mx:Button label="Novo" id="novoBtn" click="novoBtn_clickHandler(event)"/>
+		</mx:HBox>
+		<mx:HBox width="100%" height="100%">
+			<mx:DataGrid width="100%" height="100%" id="veiculoGrid" doubleClickEnabled="true" doubleClick="veiculoGrid_doubleClickHandler(event)" toolTip="Clique duas vezes para alterar.">
+				<mx:columns>
+					<mx:DataGridColumn headerText="Veículo" dataField="descricao"/>											
+					<mx:DataGridColumn headerText="Excluir">
+						<mx:itemRenderer> 
+							<mx:Component>
+								<mx:VBox verticalGap="2" horizontalAlign="center">
+									<mx:Image source="img/remover.png"  width="15" buttonMode="true" toolTip="Clique para excluir o serviço." height="15" click="{dispatchEvent(new Event('REMOVERVEICULO', true))}"/>
+								</mx:VBox>
+							</mx:Component> 
+						</mx:itemRenderer>
+					</mx:DataGridColumn>
+				</mx:columns>
+			</mx:DataGrid>	
+			
+		</mx:HBox>
+		
+		
+		</mx:VBox>
+</util:ModuleTitleWindow>

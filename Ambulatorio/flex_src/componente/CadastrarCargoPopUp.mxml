@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<util:ModuleTitleWindow title="Cadastrar Cargo" xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:util="util.*" layout="absolute"  
+width="700" height="400">
+	<mx:Script>
+		<![CDATA[
+			import bean.CargoBean;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.ValidationResultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.validators.Validator;
+			
+			import util.AlertaUtil;
+			import util.ProgressBarHelper;
+
+			
+			private var myValidators: Array;
+			private var cargo:CargoBean = new CargoBean();
+			private var idEmpresa:Number = 15;
+
+			public function init ():void{
+				
+				myValidators = new Array();
+				myValidators.push(campoDescricao);
+				
+				cargoGrid.addEventListener("REMOVERCARGO", removerCargo); 
+				
+				serviceController.findAllCargos(idEmpresa);
+				
+			}
+			
+			private function onResultFindAllCargos(event:ResultEvent):void{
+				if(event.result != null){
+					
+					cargoGrid.dataProvider = event.result;
+				}
+			}
+			
+			private function removerCargo(ev: Event): void{
+				Alert.yesLabel = "Sim";
+				Alert.noLabel = "Não";
+				Alert.show("Deseja realmente apagar?", "Apagar", 3, this, alertClickHandler);
+				
+			}
+			
+			private function alertClickHandler (event:CloseEvent):void{
+				if (event.detail==Alert.YES) {				
+					cargo = CargoBean(cargoGrid.selectedItem);
+					
+					serviceController.removerCargo(cargo);
+					
+				}
+				
+			}
+			
+			private function onResultRemoverCargo(event:ResultEvent):void{
+				if(event.result == true){
+					AlertaUtil.exibirAlertaOperacaoOk();
+					
+					ArrayCollection(cargoGrid.dataProvider).removeItemAt(cargoGrid.selectedIndex);					
+					this.limparCampo();
+				}else{
+					AlertaUtil.exibirAlertaOperacaoErro();
+				}
+			}
+			
+			protected function salvarBtn_clickHandler(event:MouseEvent):void
+			{
+				if(isCamposValidos()){
+					cargo.descricao = descricaoTxt.text.toUpperCase();
+					cargo.idEmpresa = idEmpresa;
+										
+					serviceController.salvarCargo(cargo);
+					
+				}else{
+					return;
+				}
+			}
+			
+			private function onResultSalvarCargo(event:ResultEvent):void{
+				if(event.result == true){
+					AlertaUtil.exibirAlertaOperacaoOk();
+					
+					this.limparCampo();
+					
+					serviceController.findAllCargos(idEmpresa);
+				}else{
+					AlertaUtil.exibirAlertaOperacaoErro();
+				}
+			}
+			
+			private function isCamposValidos():Boolean{
+				
+				var validatorErrorArray: Array = Validator.validateAll(myValidators);;
+				var isValidForm: Boolean = validatorErrorArray.length == 0;
+				
+				if (isValidForm) {
+					
+					return true;					
+					
+				} else {
+					var err: ValidationResultEvent;
+					var errorMessageArray: Array = [];
+					for each (err in validatorErrorArray) {
+						var errField: String = FormItem(err.currentTarget.source.parent).label
+						errorMessageArray.push(errField + " Este campo é obrigatório.");
+					}
+					Alert.show(errorMessageArray.join("\n\n"), "Formulário Inválido", Alert.OK);
+					//return false;
+				}
+				return false;
+			}
+
+
+			protected function cargoGrid_doubleClickHandler(event:MouseEvent):void
+			{
+				if(cargoGrid.selectedItem != null){
+					cargo = CargoBean(cargoGrid.selectedItem);
+					descricaoTxt.text = cargo.descricao;
+				}
+			}
+
+
+			protected function novoBtn_clickHandler(event:MouseEvent):void
+			{
+				this.limparCampo();
+			}
+			
+			private function limparCampo():void{
+				cargo = new CargoBean();
+				descricaoTxt.text = "";
+			}
+
+		]]>
+		
+	</mx:Script>
+	
+	<mx:StringValidator id="campoDescricao" requiredFieldError="Este campo é obrigatório!" required="true" source="{descricaoTxt}" property="text" />
+	
+	<mx:RemoteObject destination="service" invoke="{ProgressBarHelper.openProgressBar(this)}" id="serviceController" showBusyCursor="true" fault="ProgressBarHelper.erro(event, null);ProgressBarHelper.removeProgressBar()">
+		
+		<mx:method name="findAllCargos" result="onResultFindAllCargos(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="removerCargo" result="onResultRemoverCargo(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="salvarCargo" result="onResultSalvarCargo(event);ProgressBarHelper.removeProgressBar()"/>
+		
+	</mx:RemoteObject>
+	
+	
+	<mx:VBox height="100%" width="100%">
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Form cornerRadius="5" borderColor="#1E90FF" borderStyle="solid">
+				<mx:FormItem label="Descrição:" required="true">
+					<mx:TextInput  id="descricaoTxt" maxChars="30"/>
+					</mx:FormItem>				
+				</mx:Form>			
+		</mx:HBox>
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Button label="Salvar" id="salvarBtn" click="salvarBtn_clickHandler(event)"/>
+			<mx:Button label="Novo" id="novoBtn" click="novoBtn_clickHandler(event)"/>
+		</mx:HBox>
+		<mx:HBox width="100%" height="100%">
+			<mx:DataGrid width="100%" height="100%" id="cargoGrid" doubleClickEnabled="true" doubleClick="cargoGrid_doubleClickHandler(event)" toolTip="Clique duas vezes para alterar.">
+				<mx:columns>
+					<mx:DataGridColumn headerText="Descrição" dataField="descricao"/>											
+					<mx:DataGridColumn headerText="Excluir">
+						<mx:itemRenderer> 
+							<mx:Component>
+								<mx:VBox verticalGap="2" horizontalAlign="center">
+									<mx:Image source="img/remover.png"  width="15" buttonMode="true" toolTip="Clique para excluir o serviço." height="15" click="{dispatchEvent(new Event('REMOVERCARGO', true))}"/>
+								</mx:VBox>
+							</mx:Component> 
+						</mx:itemRenderer>
+					</mx:DataGridColumn>
+				</mx:columns>
+			</mx:DataGrid>	
+			
+		</mx:HBox>
+		
+		
+		</mx:VBox>
+</util:ModuleTitleWindow>

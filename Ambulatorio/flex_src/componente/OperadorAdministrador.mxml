@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" backgroundAlpha="0.70" backgroundColor="#FFFFFF" xmlns:control="br.com.thinklab.util.control.*">
+	<mx:Script>
+		<![CDATA[
+			import bean.CargoBean;
+			import bean.UsuarioBean;
+			import bean.OperadorAdministradorBean;
+			import bean.PerfilSisBean;
+			import bean.TipoVeiculoBean;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.core.IFlexDisplayObject;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+			import mx.events.ValidationResultEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.validators.Validator;
+			
+			import util.AlertaUtil;
+			import util.EstadosUtil;
+			import util.ProgressBarHelper;
+						
+			private var myValidators: Array;
+			private var idEmpresa:Number = 15;
+			private var usuarioBean:UsuarioBean;
+			private var operAdm:OperadorAdministradorBean = new OperadorAdministradorBean();
+			[Bindable]
+			private var cargoAux:ArrayCollection = new ArrayCollection();
+			
+			/*[Bindable]
+			private var tipoUsuario:ArrayCollection = new ArrayCollection([
+				{tipo: "Administrador"},
+				{tipo: "Operador"}]);*/
+			
+			public function init (usuario:UsuarioBean):void{
+				
+				myValidators = new Array();
+				myValidators.push(campoNome);
+				myValidators.push(campoCpf);
+				myValidators.push(campoEndereco);
+				myValidators.push(campoCidade);
+				myValidators.push(campoEstado);
+				myValidators.push(campoEmail);
+				myValidators.push(campoTelefone);
+				myValidators.push(campoTipoUsuario);
+				myValidators.push(campoInicioAtiv);
+				myValidators.push(campoUsuario);
+				myValidators.push(campoSenha);
+				this.usuarioBean = usuario;
+				
+				serviceController.findAllOperadorAdministrador(usuarioBean.idEmpresa);
+				
+				serviceController.findAllCargos(usuarioBean.idEmpresa);
+				
+				serviceController.findAllTipoUsuario();
+				
+				operadorAdmGrid.addEventListener("REMOVEROPERADORADM", removerOperadorAdm);				
+				
+			}
+			
+			private function removerOperadorAdm(ev: Event): void{
+				Alert.yesLabel = "Sim";
+				Alert.noLabel = "Não";
+				Alert.show("Deseja realmente apagar?", "Apagar", 3, this, alertClickHandler);
+				
+			}
+			
+			private function alertClickHandler (event:CloseEvent):void{
+				if (event.detail==Alert.YES) {				
+					operAdm = OperadorAdministradorBean(operadorAdmGrid.selectedItem);
+					
+					serviceController.removerOperadorAdministrador(operAdm);					
+				}				
+			}
+			
+			private function onResultRemoverOperadorAdministrador(event:ResultEvent):void{
+				if(event.result == true){
+					AlertaUtil.exibirAlertaOperacaoOk();
+					
+					ArrayCollection(operadorAdmGrid.dataProvider).removeItemAt(operadorAdmGrid.selectedIndex);
+					
+					limparCampos();
+				}else{
+					AlertaUtil.exibirAlertaOperacaoErro();
+				}
+			}
+						
+			private function onResultFindAllOperadorAdministrador(event:ResultEvent):void{
+				if(event.result != null){
+														
+					operadorAdmGrid.dataProvider = event.result;
+				}
+			}
+			
+			private function onResultFindAllTipoUsuario(event:ResultEvent):void{
+				if(event.result != null){													
+					usuarioCbx.dataProvider = event.result;
+				}
+			}
+			
+			private function onResultFindAllCargos(event:ResultEvent):void{
+				if(event.result != null){
+					cargoAux.removeAll();
+					cargoAux.addAll(event.result as ArrayCollection);
+					cargoCbx.dataProvider = cargoAux;
+				}
+			}
+
+			protected function cadastrarCargoBtn_clickHandler(event:MouseEvent):void
+			{				
+				var cargoPopup:CadastrarCargoPopUp = new CadastrarCargoPopUp();
+				cargoPopup.addEventListener(CloseEvent.CLOSE, removeCadastrarCargoPopUp);
+				PopUpManager.addPopUp(cargoPopup, this, true);
+				PopUpManager.centerPopUp(cargoPopup);
+				cargoPopup.init();
+			}
+			
+			private function removeCadastrarCargoPopUp(obj:CloseEvent):void{
+				PopUpManager.removePopUp(obj.currentTarget as IFlexDisplayObject);
+				serviceController.findAllCargos(usuarioBean.idEmpresa);
+						
+			}
+
+
+			protected function operadorAdmGrid_doubleClickHandler(event:MouseEvent):void
+			{
+					terminoAtividadesForm.includeInLayout = true
+					terminoAtividadesForm.visible = true;
+					
+					operAdm = OperadorAdministradorBean(operadorAdmGrid.selectedItem);
+					
+					nomeTxt.text = operAdm.nome;
+					cpfTxt.text = operAdm.cpf;
+					enderecoTxt.text = operAdm.endereco;
+					cidadeTxt.text = operAdm.cidade;
+					this.fixarEstado();
+					this.fixarTipoUsuario();
+					emailTxt.text = operAdm.email;
+					telefoneTxt.text = operAdm.telefone;
+					inicioAtividadesDate.text = operAdm.inicioAtividades;
+					terminoAtividadesDate.text = operAdm.terminoAtividades;
+					usuarioTxt.text = operAdm.usuarioStr;
+					senhaTxt.text = operAdm.senhaStr;
+					
+					if(operAdm.perfilStr == 'OPERADOR'){
+						cargoForm.includeInLayout = true;
+						cargoForm.visible = true;
+						this.fixarCargo();
+					}else{
+						cargoForm.includeInLayout = false;
+						cargoForm.visible = false;
+						
+					}
+			}
+			
+			private function fixarCargo():void{
+				var tipo:ArrayCollection = ArrayCollection(cargoCbx.dataProvider);				
+				for(var i:int=0; i < tipo.length; i++){					
+					var tipoAux:CargoBean = CargoBean(tipo.getItemAt(i));
+					if(tipoAux.idCargo == OperadorAdministradorBean(operadorAdmGrid.selectedItem).idCargo){
+						cargoCbx.selectedIndex = i;
+						break;
+					}
+				}
+			}
+			
+			private function fixarEstado():void{
+				var estado:ArrayCollection = ArrayCollection(estadoCbx.dataProvider);
+				for(var i:int=0; i < estado.length; i++){					
+					var estadoAux:Object = Object(estado.getItemAt(i));
+					if(operAdm.estado == estadoAux.estado){
+						estadoCbx.selectedIndex = i;
+						break;
+					}
+				}
+			}
+			
+			private function fixarTipoUsuario():void{
+				var tipo:ArrayCollection = ArrayCollection(usuarioCbx.dataProvider);				
+				for(var i:int=0; i < tipo.length; i++){					
+					var tipoAux:PerfilSisBean = PerfilSisBean(tipo.getItemAt(i));
+					if(tipoAux.idPerfilSis == OperadorAdministradorBean(operadorAdmGrid.selectedItem).idPerfilSis){
+						usuarioCbx.selectedIndex = i;
+						break;
+					}
+				}
+			}
+
+
+			protected function salvatBtn_clickHandler(event:MouseEvent):void
+			{
+				if(isCamposValidos()){
+					
+					if(PerfilSisBean(usuarioCbx.selectedItem).sigla == 'OPER' && cargoCbx.selectedIndex == -1){
+						AlertaUtil.exibirAlerta("Cargo Obrigatório", "Alerta!");
+						return;
+					}
+					/*if(terminoAtividadesForm.includeInLayout == true && terminoAtividadesForm.visible == true && terminoAtividadesDate.text == ""){
+						AlertaUtil.exibirAlerta("Termino das atividades Obrigatório", "Alerta!");
+						return;
+					}*/
+					
+					operAdm.idEmpresa = usuarioBean.idEmpresa;
+					operAdm.nome = nomeTxt.text;
+					operAdm.cpf = cpfTxt.text;
+					operAdm.email = emailTxt.text;
+					operAdm.endereco = enderecoTxt.text;
+					operAdm.cidade = cidadeTxt.text;
+					operAdm.estado = estadoCbx.selectedLabel;
+					operAdm.inicioAtividades = inicioAtividadesDate.text;
+					operAdm.telefone = telefoneTxt.text;
+					operAdm.terminoAtividades  = terminoAtividadesDate.text;
+					operAdm.idPerfilSis = PerfilSisBean(usuarioCbx.selectedItem).idPerfilSis;
+					operAdm.usuarioStr = usuarioTxt.text;
+					operAdm.senhaStr = senhaTxt.text;
+					
+					if(PerfilSisBean(usuarioCbx.selectedItem).sigla == 'OPER'){
+						operAdm.idCargo = CargoBean(cargoCbx.selectedItem).idCargo;
+					}else{
+						operAdm.idCargo = 0;
+					}
+					
+					serviceController.salvarOperadorAdministrador(operAdm);
+					
+				}else{
+					return;
+				}	
+			}
+			
+			private function onResultSalvarOperadorAdministrador(event:ResultEvent):void{
+				if(event.result == true){
+														
+					AlertaUtil.exibirAlertaOperacaoOk();
+					
+					limparCampos();
+					
+					serviceController.findAllOperadorAdministrador(usuarioBean.idEmpresa);
+				}else{
+					AlertaUtil.exibirAlertaOperacaoErro();
+				}
+			}
+			
+			private function isCamposValidos():Boolean{
+				
+				var validatorErrorArray: Array = Validator.validateAll(myValidators);
+				var isValidForm: Boolean = validatorErrorArray.length == 0;
+				
+				if (isValidForm) {
+					
+					return true;					
+					
+				} else {
+					var err: ValidationResultEvent;
+					var errorMessageArray: Array = [];
+					for each (err in validatorErrorArray) {
+						var errField: String = FormItem(err.currentTarget.source.parent).label
+						errorMessageArray.push(errField + " Este campo é obrigatório.");
+					}
+					Alert.show(errorMessageArray.join("\n\n"), "Formulário Inválido", Alert.OK);
+					//return false;
+				}
+				return false;
+			}
+
+
+			protected function usuarioCbx_changeHandler(event:ListEvent):void
+			{
+				if(PerfilSisBean(usuarioCbx.selectedItem).sigla == 'OPER'){
+					cargoForm.includeInLayout = true;
+					cargoForm.visible = true;
+				}else{
+					cargoForm.includeInLayout = false;
+					cargoForm.visible = false;
+				}
+			}
+			
+			private function limparCampos():void{
+				operAdm = new OperadorAdministradorBean();
+				nomeTxt.text = "";
+				cpfTxt.text = "";
+				emailTxt.text = "";
+				enderecoTxt.text = "";
+				cidadeTxt.text = "";
+				estadoCbx.selectedIndex = -1;
+				inicioAtividadesDate.text == "";
+				telefoneTxt.text = "";
+				terminoAtividadesDate.text = "";
+				usuarioCbx.selectedIndex = -1;
+				cargoForm.includeInLayout = false;
+				cargoForm.visible = false;
+				terminoAtividadesForm.includeInLayout = false;
+				terminoAtividadesForm.visible = false;
+				cargoCbx.selectedIndex = -1;				
+				usuarioTxt.text = "";
+				senhaTxt.text = "";
+				
+			}
+
+
+			protected function novoBtn_clickHandler(event:MouseEvent):void
+			{
+				limparCampos();
+			}
+
+		]]>
+		
+	</mx:Script>
+	
+	<!--mx:StringValidator id="campoDescricao" requiredFieldError="Este campo é obrigatório!" required="true" source="{}" property="text" /-->
+	<mx:StringValidator id="campoNome" requiredFieldError="Este campo é obrigatório!" required="true" source="{nomeTxt}" property="text" />
+	<mx:StringValidator id="campoCpf" requiredFieldError="Este campo é obrigatório!" required="true" source="{cpfTxt}" property="text" />
+	<mx:StringValidator id="campoEndereco" requiredFieldError="Este campo é obrigatório!" required="true" source="{enderecoTxt}" property="text" />
+	<mx:StringValidator id="campoCidade" requiredFieldError="Este campo é obrigatório!" required="true" source="{cidadeTxt}" property="text" />
+	<mx:NumberValidator id="campoEstado" source="{estadoCbx}" lowerThanMinError="Este campo  obrigatório." property="selectedIndex" minValue="0" />
+	<mx:StringValidator id="campoEmail" requiredFieldError="Este campo é obrigatório!" required="true" source="{emailTxt}" property="text" />
+	<mx:StringValidator id="campoTelefone" requiredFieldError="Este campo é obrigatório!" required="true" source="{telefoneTxt}" property="text" />
+	<mx:NumberValidator id="campoTipoUsuario" source="{usuarioCbx}" lowerThanMinError="Este campo  obrigatório." property="selectedIndex" minValue="0" />
+	<mx:StringValidator id="campoInicioAtiv" requiredFieldError="Este campo é obrigatório!" required="true" source="{inicioAtividadesDate}" property="text" />
+	<mx:StringValidator id="campoUsuario" requiredFieldError="Este campo é obrigatório!" required="true" source="{usuarioTxt}" property="text" />
+	<mx:StringValidator id="campoSenha" requiredFieldError="Este campo é obrigatório!" required="true" source="{senhaTxt}" property="text" />
+	
+	<mx:RemoteObject destination="service" invoke="{ProgressBarHelper.openProgressBar(this)}" id="serviceController" showBusyCursor="true" fault="ProgressBarHelper.erro(event, null);ProgressBarHelper.removeProgressBar()">
+		
+		<mx:method name="findAllCargos" result="onResultFindAllCargos(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="salvarOperadorAdministrador" result="onResultSalvarOperadorAdministrador(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="findAllOperadorAdministrador" result="onResultFindAllOperadorAdministrador(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="findAllTipoUsuario" result="onResultFindAllTipoUsuario(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="removerOperadorAdministrador" result="onResultRemoverOperadorAdministrador(event);ProgressBarHelper.removeProgressBar()"/>
+		
+	</mx:RemoteObject>
+	
+	<mx:VBox height="100%" width="100%">
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Form cornerRadius="5" borderColor="#1E90FF" borderStyle="solid">
+				<mx:FormItem label="Nome:" required="true">
+					<mx:TextInput  id="nomeTxt" maxChars="50"/>
+				</mx:FormItem>
+				<mx:FormItem label="CPF:" required="true">
+					<mx:TextInput  id="cpfTxt" maxChars="15"/>
+				</mx:FormItem>
+				<mx:FormItem label="Endereço:" required="true">
+					<mx:TextInput  id="enderecoTxt" maxChars="150"/>
+					</mx:FormItem>					
+					<mx:FormItem label="Cidade:" required="true">
+						<mx:TextInput  id="cidadeTxt" maxChars="25"/>			
+				</mx:FormItem>				
+				<mx:FormItem label="Estado:" required="true">
+					<mx:ComboBox id="estadoCbx" prompt="Selecione" dataProvider="{EstadosUtil.obterListaEstados()}" labelField="estado"/>						
+				</mx:FormItem>
+				<mx:FormItem label="E-mail:" required="true">
+					<mx:TextInput  id="emailTxt" maxChars="30"/>			
+				</mx:FormItem>				
+				<mx:FormItem label="Telefone:" required="true">
+					<mx:TextInput  id="telefoneTxt" maxChars="15" restrict="0-9" toolTip="Digite apenas numeros."/>			
+				</mx:FormItem>
+			</mx:Form>
+			
+			<mx:Form cornerRadius="5" borderColor="#1E90FF" height="100%" borderStyle="solid">
+				<mx:FormItem label="Tipo de Usuário:" required="true">
+					<mx:ComboBox id="usuarioCbx" prompt="Selecione" labelField="nomePerfil" change="usuarioCbx_changeHandler(event)"/>						
+				</mx:FormItem>				
+				<mx:FormItem label="Cargo:" required="true" id="cargoForm" cornerRadius="5" borderColor="#1E90FF" borderStyle="solid" includeInLayout="false" visible="false" > <!---->
+					<mx:ComboBox id="cargoCbx" prompt="Selecione" labelField="descricao"/>	
+					<mx:Button id="cadastrarCargoBtn" label="Cadastrar Cargo" click="cadastrarCargoBtn_clickHandler(event)" toolTip="Clique para: Cadastrar um cargo."/>
+				</mx:FormItem>
+							
+				<mx:FormItem label="Inicio das Atividades:" required="true">
+					<mx:DateField id="inicioAtividadesDate" formatString="DD/MM/YYYY" dayNames="{new Array('D','S','T','Q','Q','S','S')}" monthNames="{new Array('JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO') }"/>
+				</mx:FormItem>
+				<mx:FormItem label="Término das Atividades:" id="terminoAtividadesForm" required="true" includeInLayout="false" visible="false">
+					<mx:DateField id="terminoAtividadesDate" formatString="DD/MM/YYYY" dayNames="{new Array('D','S','T','Q','Q','S','S')}" monthNames="{new Array('JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO') }"/>
+				</mx:FormItem>
+				<mx:FormItem label="Usuário:" required="true" width="251">
+					<mx:TextInput id="usuarioTxt" maxChars="15" width="92"/>
+				</mx:FormItem>
+				<mx:FormItem label="Senha:" required="true" width="251">
+					<mx:TextInput id="senhaTxt" maxChars="15" width="92" displayAsPassword="true"/>
+				</mx:FormItem>			
+				</mx:Form>			
+		</mx:HBox>		
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Button id="salvatBtn" label="Salvar" click="salvatBtn_clickHandler(event)"/>
+			<mx:Button id="novoBtn" label="Novo" click="novoBtn_clickHandler(event)"/>
+		</mx:HBox>
+		<mx:HBox width="100%" height="100%">
+			<mx:DataGrid width="100%" height="100%" id="operadorAdmGrid" doubleClickEnabled="true" doubleClick="operadorAdmGrid_doubleClickHandler(event)" toolTip="Clique duas vezes para alterar.">
+				<mx:columns>
+					<mx:DataGridColumn headerText="Nome" dataField="nome"/>
+					<mx:DataGridColumn headerText="CPF" dataField="cpf"/>
+					<mx:DataGridColumn headerText="Endereço" dataField="endereco"/>
+					<mx:DataGridColumn headerText="Cidade" dataField="cidade"/>							
+					<mx:DataGridColumn headerText="Estado" dataField="estado"/>							
+					<mx:DataGridColumn headerText="E-mail" dataField="email"/>							
+					<mx:DataGridColumn headerText="Telefone" dataField="telefone"/>							
+					<mx:DataGridColumn headerText="Tipo Usuário" dataField="perfilStr"/>							
+					<mx:DataGridColumn headerText="Inicio das Atividades" dataField="inicioAtividades"/>							
+					<mx:DataGridColumn headerText="Término das Atividades" dataField="terminoAtividades"/>							
+					<mx:DataGridColumn headerText="Excluir">
+						<mx:itemRenderer> 
+							<mx:Component>
+								<mx:VBox verticalGap="2" horizontalAlign="center">
+									<mx:Image source="img/remover.png"  width="15" buttonMode="true" toolTip="Clique para excluir o serviço." height="15" click="{dispatchEvent(new Event('REMOVEROPERADORADM', true))}"/>
+								</mx:VBox>
+							</mx:Component> 
+						</mx:itemRenderer>
+					</mx:DataGridColumn>
+				</mx:columns>
+			</mx:DataGrid>	
+			
+		</mx:HBox>
+		
+	</mx:VBox>
+	
+</mx:Canvas>

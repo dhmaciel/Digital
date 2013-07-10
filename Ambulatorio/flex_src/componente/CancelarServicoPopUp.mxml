@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<util:ModuleTitleWindow title="Cancelar Serviço" xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:util="util.*" layout="absolute"  
+width="300" height="200">
+	<mx:Script>
+		<![CDATA[
+			import bean.AgendaBean;
+			import bean.ClienteBean;
+			import bean.ServicosBean;
+			import bean.TotalServicosBean;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import util.AlertaUtil;
+			import util.ProgressBarHelper;
+			
+			private var agendaBean:AgendaBean;
+			private var statusServico:String;
+
+			public function init (agenda:AgendaBean, statusServico:String):void{			
+				this.agendaBean = agenda;
+				this.statusServico = statusServico;
+				
+			}
+		
+			protected function iniciarBtn_clickHandler(event:MouseEvent):void
+			{
+				Alert.yesLabel = "Sim";
+				Alert.noLabel = "Não";
+				Alert.show("Deseja realmente cancelar o serviço?", "Apagar", 3, this, alertClickHandler);				
+			}
+			
+			private function alertClickHandler (event:CloseEvent):void{
+				if (event.detail==Alert.YES) {
+					agendaBean.obsConcluirAgendamento = obsTxt.text;
+					serviceController.changeStatusServico(agendaBean, statusServico);
+				}	
+			}
+			
+			private function onResultChangeStatusServico(event:ResultEvent):void{
+				if(event.result != null){
+					if(event.result == true){
+						AlertaUtil.exibirAlertaOperacaoOk();
+						this.close();
+					}else{
+						AlertaUtil.exibirAlertaOperacaoErro();
+					}
+				}
+			}
+
+		]]>
+		
+	</mx:Script>
+	
+	
+	<mx:RemoteObject destination="service" invoke="{ProgressBarHelper.openProgressBar(this)}" id="serviceController" showBusyCursor="true" fault="ProgressBarHelper.erro(event, null);ProgressBarHelper.removeProgressBar()">
+		
+		<mx:method name="changeStatusServico" result="onResultChangeStatusServico(event);ProgressBarHelper.removeProgressBar()"/>
+		
+	</mx:RemoteObject>
+	
+	
+	<mx:VBox height="100%" width="100%" horizontalAlign="center">
+		<mx:Label text="Observação:"/>
+		<mx:TextArea id="obsTxt" height="100" width="180" toolTip="Insira a observação do serviço."/>
+		<mx:HBox horizontalAlign="center" width="100%" verticalAlign="middle">
+			<mx:Button label="Confirmar" id="iniciarBtn" click="iniciarBtn_clickHandler(event)"/>
+		</mx:HBox>
+		
+		</mx:VBox>
+</util:ModuleTitleWindow>

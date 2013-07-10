@@ -1,0 +1,323 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" backgroundAlpha="0.70" backgroundColor="#FFFFFF" xmlns:control="br.com.thinklab.util.control.*">
+	<mx:Script>
+		<![CDATA[
+			import bean.CargoBean;
+			import bean.UsuarioBean;
+			import bean.ClienteBean;
+			import bean.OperadorAdministradorBean;
+			import bean.PerfilSisBean;
+			import bean.TipoVeiculoBean;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.core.IFlexDisplayObject;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+			import mx.events.ValidationResultEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.validators.Validator;
+			
+			import util.AlertaUtil;
+			import util.EstadosUtil;
+			import util.ProgressBarHelper;
+						
+			private var myValidators: Array;
+			private var idEmpresa:Number = 15;
+			private var usuarioBean:UsuarioBean;
+			private var cliente:ClienteBean = new ClienteBean();
+			private var perfilSis:PerfilSisBean = new PerfilSisBean();
+			private var veiculoPopUp:CadastrarVeiculoPopUp;
+			
+			/*[Bindable]
+			private var tipoUsuario:ArrayCollection = new ArrayCollection([
+				{tipo: "Administrador"},
+				{tipo: "Operador"}]);*/
+			
+			
+			
+			public function init (usuario:UsuarioBean):void{
+				
+				myValidators = new Array();
+				myValidators.push(campoNome);
+				myValidators.push(campoCpf);
+				myValidators.push(campoEndereco);
+				myValidators.push(campoCidade);
+				myValidators.push(campoEstado);
+				myValidators.push(campoEmail);
+				myValidators.push(campoTelefone);
+				myValidators.push(campoUsuario);
+				myValidators.push(campoSenha);
+				this.usuarioBean = usuario;
+				
+				serviceController.findPerfilCliente();
+				
+				serviceController.findAllCliente();	
+				
+				
+				clienteGrid.addEventListener("REMOVERCLIENTE", removerCliente);				
+				
+			}
+			
+			private function onResultFindPerfilCliente(event:ResultEvent):void{
+				if(event.result != null){
+					perfilSis = PerfilSisBean(event.result);
+				}
+				
+			}		
+			private function onResultFindAllCliente(event:ResultEvent):void{
+				if(event.result != null){
+					clienteGrid.dataProvider = event.result;
+				}
+				
+			}		
+
+			
+			private function removerCliente(ev: Event): void{
+				Alert.yesLabel = "Sim";
+				Alert.noLabel = "Não";
+				Alert.show("Deseja realmente apagar?", "Apagar", 3, this, alertClickHandler);
+				
+			}
+			
+			private function alertClickHandler (event:CloseEvent):void{
+				if (event.detail==Alert.YES) {				
+					cliente = ClienteBean(clienteGrid.selectedItem);
+					
+					serviceController.removerCliente(cliente);					
+				}
+				
+			}
+			
+			private function onResultRemoverCliente(event:ResultEvent):void{
+				if(event.result == true){
+					
+					ArrayCollection(clienteGrid.dataProvider).removeItemAt(clienteGrid.selectedIndex);
+					limparCampos();
+					
+					AlertaUtil.exibirAlertaOperacaoOk();
+				}else{
+					AlertaUtil.exibirAlertaOperacaoErro();
+				}
+				
+			}		
+
+			protected function salvatBtn_clickHandler(event:MouseEvent):void
+			{
+				if(isCamposValidos()){					
+					
+					
+					//cliente.idEmpresa = idEmpresa;
+					cliente.nome = nomeTxt.text;
+					cliente.cpf = cpfTxt.text;
+					cliente.email = emailTxt.text;
+					cliente.endereco = enderecoTxt.text;
+					cliente.cidade = cidadeTxt.text;
+					cliente.estado = estadoCbx.selectedLabel;
+					cliente.telefone = telefoneTxt.text;
+					cliente.idPerfilSis = perfilSis.idPerfilSis;
+					cliente.usuarioStr = usuarioTxt.text;
+					cliente.senhaStr = senhaTxt.text;					
+										
+					serviceController.salvarCliente(cliente);
+					
+				}else{
+					return;
+				}	
+			}
+			
+			private function onResultSalvarCliente(event:ResultEvent):void{
+				if(event.result == true){
+					AlertaUtil.exibirAlertaOperacaoOk();
+					limparCampos();
+					serviceController.findAllCliente();
+				}else{
+					AlertaUtil.exibirAlertaOperacaoErro();
+				}
+				
+			}		
+			
+			private function isCamposValidos():Boolean{
+				
+				var validatorErrorArray: Array = Validator.validateAll(myValidators);;
+				var isValidForm: Boolean = validatorErrorArray.length == 0;
+				
+				if (isValidForm) {
+					
+					return true;					
+					
+				} else {
+					var err: ValidationResultEvent;
+					var errorMessageArray: Array = [];
+					for each (err in validatorErrorArray) {
+						var errField: String = FormItem(err.currentTarget.source.parent).label
+						errorMessageArray.push(errField + " Este campo é obrigatório.");
+					}
+					Alert.show(errorMessageArray.join("\n\n"), "Formulário Inválido", Alert.OK);
+					//return false;
+				}
+				return false;
+			}
+			
+			
+
+
+			protected function novoBtn_clickHandler(event:MouseEvent):void
+			{
+				limparCampos();
+			}
+			
+			private function limparCampos():void{
+				cliente = new ClienteBean();
+				nomeTxt.text = "";
+				cpfTxt.text = "";
+				emailTxt.text = "";
+				enderecoTxt.text = "";
+				cidadeTxt.text = "";
+				estadoCbx.selectedIndex = -1;
+				telefoneTxt.text = "";
+				usuarioTxt.text = "";
+				senhaTxt.text = "";
+				
+			}
+
+
+
+			protected function cadastrarVeiculoBtn_clickHandler(event:MouseEvent):void
+			{
+				veiculoPopUp = new CadastrarVeiculoPopUp();
+				veiculoPopUp.addEventListener(CloseEvent.CLOSE, removeCadastrarVeiculoPopUp);
+				PopUpManager.addPopUp(veiculoPopUp, this, true);
+				PopUpManager.centerPopUp(veiculoPopUp);
+				veiculoPopUp.init(cliente);
+			}
+			
+			private function removeCadastrarVeiculoPopUp(obj:CloseEvent):void{
+				PopUpManager.removePopUp(obj.currentTarget as IFlexDisplayObject);				
+				//cliente.listVeiculoBean.addAll(veiculoPopUp.clienteBean.listVeiculoBean);				
+				//serviceController.findAllCliente();	
+				
+			}
+
+
+			protected function clienteGrid_doubleClickHandler(event:MouseEvent):void
+			{
+				cliente = ClienteBean(clienteGrid.selectedItem);
+				
+				nomeTxt.text = cliente.nome;
+				cpfTxt.text = cliente.cpf;
+				enderecoTxt.text = cliente.endereco;
+				cidadeTxt.text = cliente.cidade;
+				this.fixarEstado();
+				emailTxt.text = cliente.email;
+				telefoneTxt.text = cliente.telefone;
+				usuarioTxt.text = cliente.usuarioStr;
+				senhaTxt.text = cliente.senhaStr;
+			}
+			
+			private function fixarEstado():void{
+				var estado:ArrayCollection = ArrayCollection(estadoCbx.dataProvider);
+				for(var i:int=0; i < estado.length; i++){					
+					var estadoAux:Object = Object(estado.getItemAt(i));
+					if(cliente	.estado == estadoAux.estado){
+						estadoCbx.selectedIndex = i;
+						break;
+					}
+				}
+			}
+
+		]]>
+		
+	</mx:Script>
+	
+	<!--mx:StringValidator id="campoDescricao" requiredFieldError="Este campo é obrigatório!" required="true" source="{}" property="text" /-->
+	<mx:StringValidator id="campoNome" requiredFieldError="Este campo é obrigatório!" required="true" source="{nomeTxt}" property="text" />
+	<mx:StringValidator id="campoCpf" requiredFieldError="Este campo é obrigatório!" required="true" source="{cpfTxt}" property="text" />
+	<mx:StringValidator id="campoEndereco" requiredFieldError="Este campo é obrigatório!" required="true" source="{enderecoTxt}" property="text" />
+	<mx:StringValidator id="campoCidade" requiredFieldError="Este campo é obrigatório!" required="true" source="{cidadeTxt}" property="text" />
+	<mx:NumberValidator id="campoEstado" source="{estadoCbx}" lowerThanMinError="Este campo  obrigatório." property="selectedIndex" minValue="0" />
+	<mx:StringValidator id="campoEmail" requiredFieldError="Este campo é obrigatório!" required="true" source="{emailTxt}" property="text" />
+	<mx:StringValidator id="campoTelefone" requiredFieldError="Este campo é obrigatório!" required="true" source="{telefoneTxt}" property="text" />
+	<mx:StringValidator id="campoUsuario" requiredFieldError="Este campo é obrigatório!" required="true" source="{usuarioTxt}" property="text" />
+	<mx:StringValidator id="campoSenha" requiredFieldError="Este campo é obrigatório!" required="true" source="{senhaTxt}" property="text" />
+	
+	<mx:RemoteObject destination="service" invoke="{ProgressBarHelper.openProgressBar(this)}" id="serviceController" showBusyCursor="true" fault="ProgressBarHelper.erro(event, null);ProgressBarHelper.removeProgressBar()">
+		
+		<mx:method name="findAllCliente" result="onResultFindAllCliente(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="findPerfilCliente" result="onResultFindPerfilCliente(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="salvarCliente" result="onResultSalvarCliente(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="removerCliente" result="onResultRemoverCliente(event);ProgressBarHelper.removeProgressBar()"/>
+		
+		
+	</mx:RemoteObject>
+	
+	<mx:VBox height="100%" width="100%">
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Form cornerRadius="5" borderColor="#1E90FF" borderStyle="solid">
+				<mx:FormItem label="Nome:" required="true">
+					<mx:TextInput  id="nomeTxt" maxChars="50"/>
+				</mx:FormItem>
+				<mx:FormItem label="CPF:" required="true">
+					<mx:TextInput  id="cpfTxt" maxChars="15"/>
+				</mx:FormItem>
+				<mx:FormItem label="Endereço:" required="true">
+					<mx:TextInput  id="enderecoTxt" maxChars="150"/>
+					</mx:FormItem>					
+					<mx:FormItem label="Cidade:" required="true">
+						<mx:TextInput  id="cidadeTxt" maxChars="25"/>			
+				</mx:FormItem>				
+				<mx:FormItem label="Estado:" required="true">
+					<mx:ComboBox id="estadoCbx" prompt="Selecione" dataProvider="{EstadosUtil.obterListaEstados()}" labelField="estado"/>						
+				</mx:FormItem>
+				<mx:FormItem label="E-mail:" required="true">
+					<mx:TextInput  id="emailTxt" maxChars="30"/>			
+				</mx:FormItem>				
+				<mx:FormItem label="Telefone:" required="true">
+					<mx:TextInput  id="telefoneTxt" maxChars="15" restrict="0-9" toolTip="Digite apenas numeros."/>			
+				</mx:FormItem>
+			</mx:Form>
+			
+			<mx:Form cornerRadius="5" borderColor="#1E90FF" height="100%" borderStyle="solid">
+				<mx:FormItem label="Usuário:" required="true" width="251">
+					<mx:TextInput id="usuarioTxt" maxChars="15" width="92"/>
+				</mx:FormItem>
+				<mx:FormItem label="Senha:" required="true" width="251">
+					<mx:TextInput id="senhaTxt" maxChars="15" width="92" displayAsPassword="true"/>
+				</mx:FormItem>			
+				<mx:FormItem>					
+					<mx:Button id="cadastrarVeiculoBtn" label="Cadastrar Veículo(s)" click="cadastrarVeiculoBtn_clickHandler(event)" toolTip="Clique para: Cadastrar ou editar um veículo."/>
+				</mx:FormItem>
+				</mx:Form>			
+		</mx:HBox>		
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Button id="salvatBtn" label="Salvar" click="salvatBtn_clickHandler(event)"/>
+			<mx:Button id="novoBtn" label="Novo" click="novoBtn_clickHandler(event)"/>
+		</mx:HBox>
+		<mx:HBox width="100%" height="100%">
+			<mx:DataGrid width="100%" height="100%" id="clienteGrid" doubleClickEnabled="true" doubleClick="clienteGrid_doubleClickHandler(event)" toolTip="Clique duas vezes para alterar.">
+				<mx:columns>
+					<mx:DataGridColumn headerText="Nome" dataField="nome"/>
+					<mx:DataGridColumn headerText="CPF" dataField="cpf"/>
+					<mx:DataGridColumn headerText="Endereço" dataField="endereco"/>
+					<mx:DataGridColumn headerText="Cidade" dataField="cidade"/>							
+					<mx:DataGridColumn headerText="Estado" dataField="estado"/>							
+					<mx:DataGridColumn headerText="E-mail" dataField="email"/>							
+					<mx:DataGridColumn headerText="Telefone" dataField="telefone"/>							
+					<mx:DataGridColumn headerText="Excluir">
+						<mx:itemRenderer> 
+							<mx:Component>
+								<mx:VBox verticalGap="2" horizontalAlign="center">
+									<mx:Image source="img/remover.png"  width="15" buttonMode="true" toolTip="Clique para excluir o serviço." height="15" click="{dispatchEvent(new Event('REMOVERCLIENTE', true))}"/>
+								</mx:VBox>
+							</mx:Component> 
+						</mx:itemRenderer>
+					</mx:DataGridColumn>
+				</mx:columns>
+			</mx:DataGrid>	
+			
+		</mx:HBox>
+		
+	</mx:VBox>
+	
+</mx:Canvas>

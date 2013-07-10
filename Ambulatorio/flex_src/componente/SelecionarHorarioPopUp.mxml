@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="utf-8"?>
+<util:ModuleTitleWindow title="Selecionar Horário" xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:util="util.*" layout="absolute"  
+						width="850" height="500">
+	<mx:Script>
+		<![CDATA[
+			import bean.AgendaBean;
+			import bean.HorarioFuncionamentoBean;
+			import bean.ServicosBean;
+			import bean.TotalServicosBean;
+			import bean.VeiculoBean;
+			
+			import mx.collections.ArrayCollection;
+			import mx.core.IFlexDisplayObject;
+			import mx.events.CalendarLayoutChangeEvent;
+			import mx.events.CloseEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			
+			import util.AlertaUtil;
+			import util.ProgressBarHelper;	
+			
+			private var obsAgendamentoPopup:ObsAgendamentoPopUp;
+			
+			private var isDateChange:Boolean = false;
+			private var horarioBean:HorarioFuncionamentoBean;
+			private var agendaBean:AgendaBean;
+			private var total:TotalServicosBean;
+			private var horarioSelecionado:String;
+			public var isSaveAgendamento:Boolean = false;
+			
+			public function init (servicosBean:ArrayCollection, horario:HorarioFuncionamentoBean, agenda:AgendaBean):void{			
+				
+				serviceController.calcularTotalServicos(servicosBean);
+				this.horarioBean = horario;
+				this.agendaBean = agenda;
+				setServicosList(servicosBean);
+								
+				if(horarioBean != null){
+					agendamentoDate.text = horarioBean.diasSemana;
+					deHorarioFuncionamento.text = horarioBean.de;
+					ateHorarioFuncionamento.text = horarioBean.ate;
+					serviceController.findAllAgendamentosBy(agendamentoDate.text, agendaBean.idEmpresa);
+				}
+			}
+			
+			private function setServicosList(servicosBean:ArrayCollection):void{
+				var servicosAux:ArrayCollection = new ArrayCollection();
+				for(var i:int=0; i < servicosBean.length; i++){					
+					var serv:ServicosBean = ServicosBean(servicosBean.getItemAt(i));
+					if(serv.isSelected == true){
+						servicosAux.addItem(serv);
+					}
+				}
+				this.agendaBean.listServicosBean = servicosAux;
+			}
+			
+			private function onResultFindAllAgendamentosBy (event:ResultEvent):void{
+				agendamentoGrid.dataProvider = event.result;				
+			}
+			
+			private function onResultCalcularTotalServicos (event:ResultEvent):void{
+				total = TotalServicosBean(event.result);
+				totalServicosTxt.text = String(total.servicosSelecionados);
+				totalTempoTxt.text = total.tempoTotal;
+				valorTxt.text = total.valorTotal;
+				
+			}	
+			
+			protected function agendamentoDate_changeHandler(event:CalendarLayoutChangeEvent):void
+			{
+				if(isDateChange){
+					
+					serviceController.findDiaSelecionado(agendaBean.idEmpresa, agendamentoDate.text);	
+					
+					serviceController.findAllAgendamentosBy(agendamentoDate.text, agendaBean.idEmpresa);					
+					
+				}else{
+					isDateChange = true;
+				}
+			}
+			
+			private function onResultFindDiaAtual(event:ResultEvent):void{
+				if(event.result != null){
+					horarioBean = HorarioFuncionamentoBean(event.result);
+					
+					agendamentoDate.text = horarioBean.diasSemana;
+					deHorarioFuncionamento.text = horarioBean.de;
+					ateHorarioFuncionamento.text = horarioBean.ate;
+				}
+			}		
+			
+			protected function confirmarBtn_clickHandler(event:MouseEvent):void
+			{
+				if(isDataSelecionadaMenorAtual()){
+					AlertaUtil.exibirAlerta('A data a ser agendada não pode ser menor que a data atual.','Erro!');						
+					return;
+				}			
+			
+			horarioSelecionado = formatarHorario(horasAgendamento.value, minutosAgendamento.value);
+			serviceController.verificarHorarioSelecionado(deHorarioFuncionamento.text, ateHorarioFuncionamento.text, horarioSelecionado, total);
+			}
+			
+			private function isDataSelecionadaMenorAtual ():Boolean{
+				
+				if(agendamentoDate.text != null){
+					var dataDte:Date = DateField.stringToDate(agendamentoDate.text, 'DD/MM/YYYY');
+					var dataAtualAux:String = DateField.dateToString(new Date(), 'DD/MM/YYYY');
+					var dataAtual:Date = DateField.stringToDate(dataAtualAux, 'DD/MM/YYYY');
+					
+					if(dataDte.getTime() < dataAtual.getTime()){						
+						return true;
+					}
+					
+				}
+					return false;
+			}
+			
+			private function onResultVerificarHorarioSelecionado (event:ResultEvent):void{
+				
+				if(event.result == true){
+					
+					serviceController.verificarDisposicaoHorario(ArrayCollection(agendamentoGrid.dataProvider), total, horarioSelecionado);
+					
+				}else if(event.result == false){
+					AlertaUtil.exibirAlerta("O horário selecionado para o atendimento, não está entre o horário de funcionamento do dia.","Alerta!");					
+				}else{
+					AlertaUtil.exibirAlerta("Ocorreu um erro ao verificar o horário selecionado.","Erro!");
+				}
+				
+			}			
+			
+			private function onResultVerificarDisposicaoHorario (event:ResultEvent):void{
+				
+				if(event.result == true){
+					
+					agendaBean.dataServico = agendamentoDate.text;
+					agendaBean.deHorarioAgendamento = horarioSelecionado;
+					agendaBean.siglaStatusServico = 'AGE'; // Esta sigla quer dizer que o status do agendamento atualmente é agendado.
+					agendaBean.tempoTotalServico = total.tempoTotal;
+					
+					serviceController.salvarAgendamento(agendaBean);
+					
+				}else if(event.result == false){
+					AlertaUtil.exibirAlerta("Existe agendamento para o horário informado!\nPor favor escolha um horário diferente.","Alerta!");					
+				}else{
+					AlertaUtil.exibirAlerta("Ocorreu um erro ao verificar o horário a ser agendado.","Erro!");
+				}
+				
+			}
+			
+			private function onResultSalvarAgendamento (event:ResultEvent):void{
+				if(event.result == true){
+					isSaveAgendamento = true;
+					AlertaUtil.exibirAlertaOperacaoOk();
+					this.close();
+				}else{
+					AlertaUtil.exibirAlertaOperacaoErro();					
+				}
+				
+			}
+			
+			
+			private function formatarHorario(horas:Number, minutos:Number):String{
+				var horasFormatada:String = horas.toString();
+				var minutosFormatado:String = minutos.toString();
+				
+				if(horas.toString().length == 1){
+					horasFormatada = '0' + horas;
+				}if(minutos.toString().length == 1){
+					minutosFormatado = '0' + minutos;
+				}
+				
+				return horasFormatada + ':' + minutosFormatado;
+				
+			}
+			
+
+			protected function obsBtn_clickHandler(event:MouseEvent):void
+			{
+				obsAgendamentoPopup = new ObsAgendamentoPopUp();
+				obsAgendamentoPopup.addEventListener(CloseEvent.CLOSE, removeObsAgendamentoPopUp);
+				PopUpManager.addPopUp(obsAgendamentoPopup, this, true);
+				PopUpManager.centerPopUp(obsAgendamentoPopup);
+				obsAgendamentoPopup.init(agendaBean.obsAgendamento);
+			}
+			
+			private function removeObsAgendamentoPopUp(obj:CloseEvent):void{
+				PopUpManager.removePopUp(obj.currentTarget as IFlexDisplayObject);
+				this.agendaBean.obsAgendamento = obsAgendamentoPopup.obsAgendamento;				
+			}
+		]]>
+		
+	</mx:Script>
+	
+	
+	<mx:RemoteObject destination="service" invoke="{ProgressBarHelper.openProgressBar(this)}" id="serviceController" showBusyCursor="true" fault="ProgressBarHelper.erro(event, null);ProgressBarHelper.removeProgressBar()">
+		
+		<mx:method name="calcularTotalServicos" result="onResultCalcularTotalServicos(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="findDiaSelecionado" result="onResultFindDiaAtual(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="findAllAgendamentosBy" result="onResultFindAllAgendamentosBy(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="verificarHorarioSelecionado" result="onResultVerificarHorarioSelecionado(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="verificarDisposicaoHorario" result="onResultVerificarDisposicaoHorario(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="salvarAgendamento" result="onResultSalvarAgendamento(event);ProgressBarHelper.removeProgressBar()"/>
+		
+	</mx:RemoteObject>
+	
+	
+	<mx:VBox height="100%" width="100%" horizontalAlign="center" paddingTop="5">
+		<mx:HBox width="95%" horizontalAlign="center" cornerRadius="5" borderColor="#1E90FF" borderStyle="solid">
+			<mx:Form>
+				<mx:HBox>
+					<mx:Label text="Serviços selecionados:"/>
+					<mx:TextInput id="totalServicosTxt" width="40" enabled="false"/>
+				</mx:HBox>
+			</mx:Form>
+			<mx:Form>
+				<mx:HBox>
+					<mx:Label text="Tempo de execução total:"/>
+					<mx:TextInput id="totalTempoTxt" width="80" enabled="false"/>
+				</mx:HBox>
+			</mx:Form>			
+			<mx:Form>
+				<mx:HBox>
+					<mx:Label text="Valor total:"/>
+					<mx:TextInput id="valorTxt" width="70" enabled="false"/>
+				</mx:HBox>
+			</mx:Form>			
+		</mx:HBox>
+		<mx:Form cornerRadius="5" borderColor="#1E90FF" borderStyle="solid">
+			<mx:HBox width="100%" horizontalAlign="center">
+				<mx:Label text="Data:"/>
+				<mx:DateField id="agendamentoDate" change="agendamentoDate_changeHandler(event)"  formatString="DD/MM/YYYY" dayNames="{new Array('D','S','T','Q','Q','S','S')}" monthNames="{new Array('JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO') }"/>
+			</mx:HBox>			
+			<mx:HBox  width="376">
+				<mx:Label text="Horário de Funcionamento:"/>
+				<mx:TextInput id="deHorarioFuncionamento" width="50" enabled="false"/>
+				<mx:Label text="até"/>
+				<mx:TextInput id="ateHorarioFuncionamento" width="50" enabled="false"/>
+			</mx:HBox>
+			<mx:HBox width="376" toolTip="Selecione um horário para agendar o serviço.">
+				<mx:Label text="Horário do Serviço:            "/>
+				<mx:NumericStepper id="horasAgendamento" minimum="0" maximum="23" toolTip="Horas"/>
+				<mx:Label text=":"/>
+				<mx:NumericStepper id="minutosAgendamento" minimum="0" maximum="59" toolTip="Minutos"/>
+			</mx:HBox>
+		</mx:Form>
+		
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Button label="Observações" toolTip="clique para: Inserir observações do seriviço." id="obsBtn" click="obsBtn_clickHandler(event)"/>
+			<mx:Button label="Confirmar" id="confirmarBtn" click="confirmarBtn_clickHandler(event)" toolTip="Clique para: confirmar o horário para o atendimento."/>
+		</mx:HBox>
+		<mx:HBox width="100%" height="100%">
+			<mx:DataGrid width="100%" height="100%" id="agendamentoGrid" textAlign="center">
+				<mx:columns>
+					<mx:DataGridColumn headerText="Cliente" dataField="nomeUsuario" textAlign="center" width="25"/>						
+					<mx:DataGridColumn headerText="Data" dataField="dataServico" width="15"/>											
+					<mx:DataGridColumn headerText="Inicio do Serviço" dataField="deHorarioAgendamento" width="20"/>											
+					<mx:DataGridColumn headerText="Término do Serviço" dataField="ateHorarioAgendamento" width="20"/>											
+					<mx:DataGridColumn headerText="Serviços" dataField="valor" width="25">
+						<mx:itemRenderer>
+							<mx:Component>
+									<mx:TextArea text="{data.servicosAgendamento}" editable="false"/>									
+							</mx:Component>
+						</mx:itemRenderer>
+						</mx:DataGridColumn>
+					
+				</mx:columns>
+			</mx:DataGrid>	
+			
+		</mx:HBox>
+		
+		
+	</mx:VBox>
+</util:ModuleTitleWindow>

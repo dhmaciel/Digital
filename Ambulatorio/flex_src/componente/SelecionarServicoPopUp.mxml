@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="utf-8"?>
+<util:ModuleTitleWindow title="Selecionar Serviços" xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:util="util.*" layout="absolute"  
+width="700" height="400">
+	<mx:Script>
+		<![CDATA[
+			import bean.AgendaBean;
+			import bean.ClienteBean;
+			import bean.HorarioFuncionamentoBean;
+			import bean.ServicosBean;
+			import bean.VeiculoBean;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.core.IFlexDisplayObject;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+			import mx.events.ValidationResultEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.validators.Validator;
+			
+			import util.AlertaUtil;
+			import util.ProgressBarHelper;
+
+			
+			private var myValidators: Array;
+			private var idEmpresa:Number = 15;
+			private var idUsuario:Number = 4;
+			private var siglaUsuario:String = 'OPER';
+			private var veiculo:VeiculoBean = new VeiculoBean();
+			private var clientePopup:PesquisarClientePopUp;
+			private var agendaBean:AgendaBean = new AgendaBean();
+			private var horarioBean:HorarioFuncionamentoBean;
+			private var horarioPopup:SelecionarHorarioPopUp;
+			public var isSaveAgendamento:Boolean = false;
+			
+			[Bindable]
+			private var veiculoAux:ArrayCollection = new ArrayCollection();
+
+			public function init (horarioBean:HorarioFuncionamentoBean):void{
+				
+				myValidators = new Array();
+				myValidators.push(campoCliente);
+				myValidators.push(campoVeiculo);				
+				this.horarioBean = horarioBean;
+				
+				if(siglaUsuario == 'CLI'){
+					findUsuarioVBox.includeInLayout = false;
+					findUsuarioVBox.visible = false;
+					// TODO: INICIO Setar id Usuario com id logado se for cliente(usuário)
+					agendaBean.idEmpresa = idEmpresa;
+					agendaBean.idUsuario = 4; 
+					//TODO: FIM
+					
+					
+					//TODO: Implementar busca automática pelo usuário logado.
+					
+				}else{
+					findUsuarioVBox.includeInLayout = true;
+					findUsuarioVBox.visible = true;
+					veiculoForm.includeInLayout = false;
+					veiculoForm.visible = false;
+				}
+				
+				
+				//serviceController.findTipoVeiculo();
+				
+				//serviceController.findAllVeiculo(idUsuario);
+				
+			}
+			
+	
+			
+			private function isCamposValidos():Boolean{
+				
+				var validatorErrorArray: Array = Validator.validateAll(myValidators);;
+				var isValidForm: Boolean = validatorErrorArray.length == 0;
+				
+				if (isValidForm) {
+					
+					return true;					
+					
+				} else {
+					var err: ValidationResultEvent;
+					var errorMessageArray: Array = [];
+					for each (err in validatorErrorArray) {
+						var errField: String = FormItem(err.currentTarget.source.parent).label
+						errorMessageArray.push(errField + " Este campo é obrigatório.");
+					}
+					Alert.show(errorMessageArray.join("\n\n"), "Formulário Inválido", Alert.OK);
+					//return false;
+				}
+				return false;
+			}
+
+
+		
+			
+			/*private function fixarTipoVeiculo():void{
+				var tipo:ArrayCollection = ArrayCollection(veiculoCbx.dataProvider);				
+				for(var i:int=0; i < tipo.length; i++){					
+					var tipoAux:TipoVeiculoBean = TipoVeiculoBean(tipo.getItemAt(i));
+					if(tipoAux.idTipoVeiculo == veiculo.idTipoVeiculo){
+						veiculoCbx.selectedIndex = i;
+						break;
+					}
+				}
+			}*/
+
+
+			
+			
+			private function limparCampo():void{
+				veiculo = new VeiculoBean();
+				veiculoCbx.selectedIndex = -1;
+				clienteTxt.text = "";
+			}
+
+
+			protected function buscarCliente_clickHandler(event:MouseEvent):void
+			{
+				clientePopup = new PesquisarClientePopUp();
+				clientePopup.addEventListener(CloseEvent.CLOSE, removePesquisarClientePopUp);
+				PopUpManager.addPopUp(clientePopup, this, true);
+				PopUpManager.centerPopUp(clientePopup);
+				clientePopup.init();
+			}
+			
+			private function removePesquisarClientePopUp(obj:CloseEvent):void{
+				PopUpManager.removePopUp(obj.currentTarget as IFlexDisplayObject);
+				
+				if(clientePopup.clienteBean != null){
+					veiculoAux.removeAll();
+					veiculoAux.addAll(clientePopup.clienteBean.listVeiculoBean);
+					veiculoForm.includeInLayout = true;
+					veiculoForm.visible = true;
+					veiculoCbx.dataProvider = veiculoAux;
+					clienteTxt.text = clientePopup.clienteBean.nome;
+					servicosGrid.dataProvider = null;
+					this.agendaBean.idUsuario = clientePopup.clienteBean.idUsuario;
+					this.agendaBean.idEmpresa = idEmpresa;
+					
+				}
+						
+			}
+
+			protected function veiculoCbx_changeHandler(event:ListEvent):void
+			{
+				this.agendaBean.idVeiculo = VeiculoBean(veiculoCbx.selectedItem).idVeiculo;
+				serviceController.findAllServicosBy(VeiculoBean(veiculoCbx.selectedItem), idEmpresa);
+			}
+			
+			private function onResultFindAllServicosBy (event:ResultEvent):void{
+				servicosGrid.dataProvider = event.result;
+			}
+
+
+			protected function selecionouServico():Boolean
+			{
+				var selecionouServico:Boolean;
+				if(ArrayCollection(servicosGrid.dataProvider) != null && ArrayCollection(servicosGrid.dataProvider).length > 0){
+					
+					
+					var servicos:ArrayCollection = ArrayCollection(servicosGrid.dataProvider);				
+					for(var i:int=0; i < servicos.length; i++){					
+						var serv:ServicosBean = ServicosBean(servicos.getItemAt(i));
+						if(serv.isSelected == true){
+							selecionouServico = true;
+							break;						
+						}
+					}					
+					
+					if(selecionouServico == false){
+						AlertaUtil.exibirAlerta("Selecione pelo menos um serviço.","Alerta!");					
+					}
+				}else{
+					AlertaUtil.exibirAlerta("Selecione primeiramente um usuário e um veículo","Alerta!");
+				}
+				
+				return selecionouServico;
+			}			
+
+			protected function confirmarBtn_clickHandler(event:MouseEvent):void
+			{
+				if(selecionouServico()){
+					horarioPopup = new SelecionarHorarioPopUp();
+					horarioPopup.addEventListener(CloseEvent.CLOSE, removeHorarioPopUp);
+					PopUpManager.addPopUp(horarioPopup, this, true);
+					PopUpManager.centerPopUp(horarioPopup);
+					horarioPopup.init(ArrayCollection(servicosGrid.dataProvider), horarioBean, agendaBean);
+					
+				}else{
+					return;
+				}
+			}
+			
+			private function removeHorarioPopUp(obj:CloseEvent):void{
+				PopUpManager.removePopUp(obj.currentTarget as IFlexDisplayObject);
+				if(horarioPopup.isSaveAgendamento == true){
+					isSaveAgendamento = true;
+					this.close();
+				}
+				
+				
+			}
+
+
+			protected function resumoBtn_clickHandler(event:MouseEvent):void
+			{
+				if(selecionouServico()){
+					var resumoPopup:ResumoServicosPopUp = new ResumoServicosPopUp();
+					resumoPopup.addEventListener(CloseEvent.CLOSE, removeResumoPopUp);
+					PopUpManager.addPopUp(resumoPopup, this, true);
+					PopUpManager.centerPopUp(resumoPopup);
+					resumoPopup.init(ArrayCollection(servicosGrid.dataProvider));
+					
+					
+				}else{
+					return;
+				}
+			}
+
+				private function removeResumoPopUp(obj:CloseEvent):void{
+					PopUpManager.removePopUp(obj.currentTarget as IFlexDisplayObject);
+					
+				}
+		]]>
+		
+	</mx:Script>
+	
+	<mx:StringValidator id="campoCliente" requiredFieldError="Este campo é obrigatório!" required="true" source="{clienteTxt}" property="text" />
+	<mx:NumberValidator id="campoVeiculo" source="{veiculoCbx}" lowerThanMinError="Este campo  obrigatório." property="selectedIndex" minValue="0" />
+	
+	<mx:RemoteObject destination="service" invoke="{ProgressBarHelper.openProgressBar(this)}" id="serviceController" showBusyCursor="true" fault="ProgressBarHelper.erro(event, null);ProgressBarHelper.removeProgressBar()">
+		
+		<mx:method name="findAllServicosBy" result="onResultFindAllServicosBy(event);ProgressBarHelper.removeProgressBar()"/>
+		
+	</mx:RemoteObject>
+	
+	
+	<mx:VBox height="100%" width="100%">
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Form cornerRadius="5" borderColor="#1E90FF" borderStyle="solid">
+				<mx:HBox>
+					
+				<mx:FormItem label="Cliente:" required="true">
+					<mx:TextInput  id="clienteTxt" maxChars="30" enabled="false"/>					
+					</mx:FormItem>	
+				<mx:VBox verticalGap="2" horizontalAlign="center" id="findUsuarioVBox">
+					<mx:Image source="img/lupa.png"  width="27" id="buscarCliente" buttonMode="true" toolTip="Clique para pesquisar o cliente." height="21" click="buscarCliente_clickHandler(event)"/>
+				</mx:VBox>
+				</mx:HBox>
+				<mx:FormItem label="Veículo:" required="true" id="veiculoForm">
+					<mx:ComboBox id="veiculoCbx" prompt="Selecione" labelField="descricao" change="veiculoCbx_changeHandler(event)"/>			
+				</mx:FormItem>
+				</mx:Form>			
+		</mx:HBox>
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Button label="Resumo dos Serviços" id="resumoBtn" click="resumoBtn_clickHandler(event)" toolTip="Clique para: visualizar o total de serviços, horas e valores selecionados."/>
+			<mx:Button label="Marcar horário" id="confirmarBtn" click="confirmarBtn_clickHandler(event)" toolTip="Clique para: marcar horário para o atendimento."/>
+		</mx:HBox>
+		<mx:HBox width="100%" height="100%">
+			<mx:DataGrid width="100%" height="100%" id="servicosGrid" textAlign="center">
+				<mx:columns>
+					<mx:DataGridColumn headerText="Selecionar" dataField="descricao" textAlign="center" width="15">
+						<mx:itemRenderer>
+							<mx:Component>
+								<mx:CheckBox selectedField="isSelected" 
+											 change="onChange(event);" selected="{data.isSelected}">
+									<mx:Script>
+										<![CDATA[											
+											private function onChange(evt:Event):void {
+												data.isSelected = this.selected;
+												
+											}
+										]]>
+									</mx:Script>
+								</mx:CheckBox>
+							</mx:Component>
+						</mx:itemRenderer>
+						</mx:DataGridColumn>
+					<mx:DataGridColumn headerText="Serviço" dataField="descricao" width="35"/>											
+					<mx:DataGridColumn headerText="Tempo de Execução" dataField="tempoExecucao" width="25"/>											
+					<mx:DataGridColumn headerText="Valor" dataField="valor" width="25"/>											
+					
+				</mx:columns>
+			</mx:DataGrid>	
+			
+		</mx:HBox>
+					
+		
+		</mx:VBox>
+</util:ModuleTitleWindow>

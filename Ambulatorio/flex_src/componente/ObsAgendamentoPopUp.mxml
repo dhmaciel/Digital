@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<util:ModuleTitleWindow title="Observação do serviço" xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:util="util.*" layout="absolute"  
+width="300" height="200">
+	<mx:Script>
+		<![CDATA[
+			import bean.ClienteBean;
+			import bean.ServicosBean;
+			import bean.TotalServicosBean;
+			
+			import mx.collections.ArrayCollection;
+			import mx.rpc.events.ResultEvent;
+			
+			import util.ProgressBarHelper;
+			
+			public var obsAgendamento:String = "";
+
+			public function init (obs:String):void{			
+				obsTxt.text = obs;
+			}
+
+			protected function fecharBtn_clickHandler(event:MouseEvent):void
+			{
+				obsAgendamento = obsTxt.text;
+				this.close();
+			}
+
+		]]>
+		
+	</mx:Script>
+	
+	
+	<mx:RemoteObject destination="service" invoke="{ProgressBarHelper.openProgressBar(this)}" id="serviceController" showBusyCursor="true" fault="ProgressBarHelper.erro(event, null);ProgressBarHelper.removeProgressBar()">
+		
+	</mx:RemoteObject>
+	
+	
+	<mx:VBox height="100%" width="100%" horizontalAlign="center">
+		<mx:Label text="Insira a observação:"/>
+		<mx:TextArea id="obsTxt" height="100" width="180"/>
+		<mx:HBox horizontalAlign="center" width="100%" verticalAlign="middle">
+			<mx:Button label="Confirmar" id="fecharBtn" click="fecharBtn_clickHandler(event)"/>
+		</mx:HBox>
+		
+		</mx:VBox>
+</util:ModuleTitleWindow>

@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" backgroundAlpha="0.70" backgroundColor="#FFFFFF" xmlns:control="br.com.thinklab.util.control.*">
+	
+	<mx:Script>
+		<![CDATA[
+			import bean.AgendaBean;
+			
+			import util.AlertaUtil;
+			
+			import bean.HorarioFuncionamentoBean;
+			import bean.UsuarioBean;
+			
+			import mx.controls.Alert;
+			import mx.core.IFlexDisplayObject;
+			import mx.events.CalendarLayoutChangeEvent;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			
+			import util.ProgressBarHelper;
+			
+			private var idEmpresa:Number = 15;
+			private var usuarioBean:UsuarioBean;
+			private var isDateChange:Boolean = false;
+			private var horarioBean:HorarioFuncionamentoBean;
+			private var servicoPopup:SelecionarServicoPopUp;
+			private var iniciarServicoPopUp:IniciarServicoPopUp;
+			private var concluirServicoPopUp:ConcluirServicoPopUp;
+			private var cancelarServicoPopUp:CancelarServicoPopUp;
+			
+			private var iniciarServ:String = 'INI';
+			private var concluirServ:String = 'CON';
+			private var cancelarServ:String = 'CAN';
+			
+			
+			public function init (usuario:UsuarioBean):void{				
+				
+				agendaGrid.addEventListener("INICIARSERVICO", iniciarServico);
+				agendaGrid.addEventListener("CONCLUIRSERVICO", concluirServico);
+				agendaGrid.addEventListener("CANCELARSERVICO", cancelarServico);
+				this.usuarioBean = usuario;
+				serviceController.findDiaAtual(usuarioBean.idEmpresa);
+						
+			}
+			
+			private function iniciarServico(ev: Event): void{
+				if(usuarioBean.siglaPerfil != "CLI"){
+					
+				iniciarServicoPopUp = new IniciarServicoPopUp();
+				iniciarServicoPopUp.addEventListener(CloseEvent.CLOSE, removeIniciarServicoPopUp);
+				PopUpManager.addPopUp(iniciarServicoPopUp, this, true);
+				PopUpManager.centerPopUp(iniciarServicoPopUp);
+				iniciarServicoPopUp.init(AgendaBean(agendaGrid.selectedItem), iniciarServ);
+				}else{
+					AlertaUtil.exibirAlerta("Esta operação é de uso exclusivo do lava á jato.","Alerta!");
+				}
+				
+			}
+			
+			private function removeIniciarServicoPopUp(obj:CloseEvent):void{
+				PopUpManager.removePopUp(obj.currentTarget as IFlexDisplayObject);
+				serviceController.findAllAgendamentosBy(agendamentoDate.text, usuarioBean.idEmpresa);
+			}
+			
+			private function concluirServico(ev: Event): void{
+		
+				if(usuarioBean.siglaPerfil != "CLI"){
+				concluirServicoPopUp = new ConcluirServicoPopUp();
+				concluirServicoPopUp.addEventListener(CloseEvent.CLOSE, removeConcluirServicoPopUp);
+				PopUpManager.addPopUp(concluirServicoPopUp, this, true);
+				PopUpManager.centerPopUp(concluirServicoPopUp);
+				concluirServicoPopUp.init(AgendaBean(agendaGrid.selectedItem), concluirServ);
+				}else{
+					AlertaUtil.exibirAlerta("Esta operação é de uso exclusivo do lava á jato.","Alerta!");
+				}
+				
+			}
+			
+			
+			private function removeConcluirServicoPopUp(obj:CloseEvent):void{
+				PopUpManager.removePopUp(obj.currentTarget as IFlexDisplayObject);
+				serviceController.findAllAgendamentosBy(agendamentoDate.text, usuarioBean.idEmpresa);
+			}
+			
+			private function cancelarServico(ev: Event): void{
+				/*if(AgendaBean(agendaGrid.selectedItem).siglaStatusServico == "INI" && usuarioBean.siglaPerfil == "CLI"){
+					AlertaUtil.exibirAlerta("Não é possivel cancelar um serviço iniciado.","Alerta!");
+					return;
+				}*/
+				cancelarServicoPopUp = new CancelarServicoPopUp();
+				cancelarServicoPopUp.addEventListener(CloseEvent.CLOSE, removeCancelarServicoPopUp);
+				PopUpManager.addPopUp(cancelarServicoPopUp, this, true);
+				PopUpManager.centerPopUp(cancelarServicoPopUp);
+				cancelarServicoPopUp.init(AgendaBean(agendaGrid.selectedItem), cancelarServ);
+				
+			}
+			
+			private function removeCancelarServicoPopUp(obj:CloseEvent):void{
+				PopUpManager.removePopUp(obj.currentTarget as IFlexDisplayObject);
+				serviceController.findAllAgendamentosBy(agendamentoDate.text, usuarioBean.idEmpresa);
+			}
+			
+			private function onResultFindDiaAtual(event:ResultEvent):void{
+				if(event.result != null){
+					
+					
+					horarioBean = HorarioFuncionamentoBean(event.result);
+					
+					agendamentoDate.text = horarioBean.diasSemana;
+					deHorarioFuncionamento.text = horarioBean.de;
+					ateHorarioFuncionamento.text = horarioBean.ate;
+									
+					serviceController.findAllAgendamentosBy(agendamentoDate.text, usuarioBean.idEmpresa);
+				}
+			}
+			
+			private function isDataSelecionadaMenorAtual ():Boolean{
+				
+				if(agendamentoDate.text != null){
+					var dataDte:Date = DateField.stringToDate(agendamentoDate.text, 'DD/MM/YYYY');
+					var dataAtualAux:String = DateField.dateToString(new Date(), 'DD/MM/YYYY');
+					var dataAtual:Date = DateField.stringToDate(dataAtualAux, 'DD/MM/YYYY');
+					
+					if(dataDte.getTime() < dataAtual.getTime()){	
+						columnAcao.visible = false;
+						return true;
+					}
+					
+				}
+				return false;
+			}
+			
+			private function onResultFindAllAgendamentosBy (event:ResultEvent):void{
+				agendaGrid.dataProvider = event.result;					
+				
+				if(isDataSelecionadaMenorAtual()){
+					columnAcao.visible = false;
+				}else{
+					columnAcao.visible = true;
+				}
+			}
+
+	
+			protected function agendamentoDate_changeHandler(event:CalendarLayoutChangeEvent):void
+			{
+				if(isDateChange){
+				
+				serviceController.findDiaSelecionado(usuarioBean.idEmpresa, agendamentoDate.text);				
+				
+				}else{
+				isDateChange = true;
+				}
+			}
+
+
+			protected function agendarBtn_clickHandler(event:MouseEvent):void
+			{
+				servicoPopup = new SelecionarServicoPopUp();
+				servicoPopup.addEventListener(CloseEvent.CLOSE, removeSelecionarCargoPopUp);
+				PopUpManager.addPopUp(servicoPopup, this, true);
+				PopUpManager.centerPopUp(servicoPopup);
+				servicoPopup.init(horarioBean);
+			}
+			
+			private function removeSelecionarCargoPopUp(obj:CloseEvent):void{
+				PopUpManager.removePopUp(obj.currentTarget as IFlexDisplayObject);
+				if(servicoPopup.isSaveAgendamento == true){
+					serviceController.findDiaAtual(usuarioBean.idEmpresa);
+				}
+				
+			}
+
+	 ]]>
+			
+	</mx:Script>
+			
+<mx:RemoteObject destination="service" invoke="{ProgressBarHelper.openProgressBar(this)}" id="serviceController" showBusyCursor="true" fault="ProgressBarHelper.erro(event, null);ProgressBarHelper.removeProgressBar()">
+
+	<mx:method name="findDiaAtual" result="onResultFindDiaAtual(event);ProgressBarHelper.removeProgressBar()"/>
+	<mx:method name="findDiaSelecionado" result="onResultFindDiaAtual(event);ProgressBarHelper.removeProgressBar()"/>
+	<mx:method name="findAllAgendamentosBy" result="onResultFindAllAgendamentosBy(event);ProgressBarHelper.removeProgressBar()"/>
+	
+</mx:RemoteObject>
+	
+	<mx:VBox width="100%" height="100%">
+		
+	<mx:HBox width="100%" horizontalAlign="center">
+		<mx:Form cornerRadius="5" borderColor="#1E90FF"  borderStyle="solid">
+			<mx:FormHeading label="Agenda" textAlign="center" width="100%"/>
+			<mx:HBox width="100%" horizontalAlign="center">
+				<mx:Label text="Data:"/>
+					<mx:DateField id="agendamentoDate" change="agendamentoDate_changeHandler(event)"  formatString="DD/MM/YYYY" dayNames="{new Array('D','S','T','Q','Q','S','S')}" monthNames="{new Array('JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO') }"/>
+			</mx:HBox>
+			<mx:HBox  width="376">
+			<mx:Label text="Horário de Funcionamento:"/>
+				<mx:TextInput id="deHorarioFuncionamento" width="50" enabled="false"/>
+				<mx:Label text="até"/>
+				<mx:TextInput id="ateHorarioFuncionamento" width="50" enabled="false"/>
+			</mx:HBox>
+				<mx:HBox width="100%" horizontalAlign="center">
+					<mx:Button label="Agendar Serviço" id="agendarBtn" click="agendarBtn_clickHandler(event)"/>
+				</mx:HBox>
+			</mx:Form>		
+		</mx:HBox>
+	<mx:DataGrid width="100%" height="100%" id="agendaGrid" doubleClickEnabled="true" textAlign="center">
+		<mx:columns>
+			<mx:DataGridColumn headerText="Cliente" dataField="nomeUsuario"/>
+			<mx:DataGridColumn headerText="Veículo" dataField="descricaoVeiculo"/>
+			<mx:DataGridColumn headerText="Data do Serviço" dataField="dataServico"/>
+			<mx:DataGridColumn headerText="Serviço" dataField="servico">
+				<mx:itemRenderer>
+					<mx:Component>
+						<mx:TextArea text="{data.servicosAgendamento}" editable="false"/>									
+					</mx:Component>
+				</mx:itemRenderer>
+				</mx:DataGridColumn>
+			<mx:DataGridColumn headerText="Inicio do Serviço" dataField="deHorarioAgendamento"/>											
+			<mx:DataGridColumn headerText="Término do Serviço" dataField="ateHorarioAgendamento"/>							
+			<mx:DataGridColumn headerText="Status do Serviço" dataField="descricaoStatusServico"/>							
+			<mx:DataGridColumn headerText="Ação" id="columnAcao">
+				<mx:itemRenderer> 
+					<mx:Component>
+						<mx:HBox verticalGap="2" horizontalAlign="center">
+							<mx:Image source="img/iniciar.png" visible="{(data.siglaStatusServico == 'AGE')? true : false}" width="15" buttonMode="true" toolTip="Clique para iniciar o serviço." height="15" click="{dispatchEvent(new Event('INICIARSERVICO', true))}"/>
+							<mx:Image source="img/finalizar.png" visible="{(data.siglaStatusServico == 'INI')? true : false}"  width="15" buttonMode="true" toolTip="Clique para finalizar o serviço." height="15" click="{dispatchEvent(new Event('CONCLUIRSERVICO', true))}"/>
+							<mx:Image source="img/cancelar.png" visible="{(data.siglaStatusServico == 'CON' || data.siglaStatusServico == 'CAN' || data.siglaStatusServico == 'INI')? false : true}" width="15" buttonMode="true" toolTip="Clique para cancelar o serviço." height="15" click="{dispatchEvent(new Event('CANCELARSERVICO', true))}"/>
+						</mx:HBox>						
+					</mx:Component> 
+				</mx:itemRenderer>
+				</mx:DataGridColumn>
+		</mx:columns>
+	</mx:DataGrid>
+	
+	</mx:VBox>
+</mx:Canvas>

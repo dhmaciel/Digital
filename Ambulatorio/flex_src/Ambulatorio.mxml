@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" minWidth="955" minHeight="600" backgroundImage="@Embed(source='img/BOLHAS7.jpg')">
+	<mx:Style source="ambulatorio.css"/>
+	<mx:Resize id="resizeEffect" duration="1000"/>
+	<!--mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" resizeEffect="resizeEffect" creationComplete="init()"-->	
+	<mx:Script>
+		<![CDATA[
+			import bean.EmpresaBean;
+			import bean.LoginBean;
+			import bean.UsuarioBean;
+			
+			import componente.Agenda;
+			import componente.Cliente;
+			import componente.Empresa;
+			import componente.OperadorAdministrador;
+			import componente.Servicos;
+			
+			import mx.collections.XMLListCollection;
+			import mx.events.MenuEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import util.AlertaUtil;
+			import util.ProgressBarHelper;
+			
+			private var empresa:EmpresaBean;
+			private var usuarioBean:UsuarioBean;
+			
+			[Bindable]
+			public var menuBarCollection:XMLListCollection;
+			
+			public function init():void{
+				
+				if(usuarioBean.siglaPerfil == 'ADM'){
+					menuBarCollection = new XMLListCollection(menubarXML);
+					
+				}else{
+					menuBarCollection = new XMLListCollection(menubarOperadorClienteXML);
+					
+				}
+				
+				loginCanvas.height = 0;
+				loginCanvas.width = 0;
+				
+				digPrincipal.percentHeight = 100;
+				digPrincipal.percentWidth = 100;				
+				
+			}				
+			
+			private var menubarXML:XMLList =
+				<>
+					<menuitem label="Cadastro">
+						<menuitem label="Empresa" data="EMP"/>
+						<menuitem label="Serviços" data="SER"/>
+						<menuitem label="Operador/Administrador" data="OPER_ADM"/>						
+						<menuitem label="Cliente" data="CLI"/>							
+						
+					</menuitem>
+				
+					<menuitem label="Agenda">
+						<menuitem label="Agendamento" data="AGE"/>	
+					</menuitem>
+				</>
+			
+			private var menubarOperadorClienteXML:XMLList =
+				<>
+					<menuitem label="Cadastro">												
+						<menuitem label="Cliente" data="CLI"/>							
+						
+					</menuitem>
+				
+					<menuitem label="Agenda">
+						<menuitem label="Agendamento" data="AGE"/>	
+					</menuitem>
+				</>
+			
+			private function itemClickHandler(event:MenuEvent):void {
+				var opcao:String = event.item.@data;	
+				
+				digCanvas.removeAllChildren();
+				digCanvas.percentHeight = 100;
+				digCanvas.percentWidth = 100;
+				if(opcao == "EMP"){ 
+					//descTela.text = 'Empresa';
+					var emp:Empresa = new Empresa();
+					digCanvas.addChild(emp);
+					emp.init(usuarioBean);					
+				}else if(opcao == "SER"){
+					var ser:Servicos = new Servicos();
+					digCanvas.addChild(ser);
+					ser.init(usuarioBean);						
+				}else if(opcao == "OPER_ADM"){
+					var operAdm:OperadorAdministrador = new OperadorAdministrador();
+					digCanvas.addChild(operAdm);
+					operAdm.init(usuarioBean);						
+				}else if(opcao == "CLI"){
+					var cliente:Cliente = new Cliente();
+					digCanvas.addChild(cliente);
+					cliente.init(usuarioBean);						
+				}else if(opcao == "AGE"){
+					var agenda:Agenda = new Agenda();
+					digCanvas.addChild(agenda);
+					agenda.init(usuarioBean);						
+				}
+			}
+			
+			private function loginUser():void{
+				
+				if(loginText.text == '' || senhaText.text == ''){
+					
+					AlertaUtil.exibirAlerta("Usuário e senha obrigatórios.", "Alerta!");
+				}else{
+					var login:LoginBean = new LoginBean();
+					
+					login.login = loginText.text;
+					login.senha = senhaText.text;
+					
+					if(clienteRadio.selected){
+						empresa = EmpresaBean(estabeleciementoCbx.selectedItem);
+						login.isClienteSelected = true;
+					}else{
+						empresa = null;
+						login.isClienteSelected = false;
+					}
+					
+					serviceController.loginUser(login);
+					
+				}
+				/*loginCanvas.height = 0;
+				loginCanvas.width = 0;
+				
+				digPrincipal.percentHeight = 100;
+				digPrincipal.percentWidth = 100;*/
+				
+			}
+			
+			private function onResultLoginUser(event:ResultEvent):void{
+				if(event.result != null){
+					usuarioBean = UsuarioBean(event.result);
+					usuarioTxt.text = usuarioBean.nome;
+					if(empresa != null){
+						usuarioBean.idEmpresa = empresa.idEmpresa;
+					}
+					
+					init();
+				}else{
+					AlertaUtil.exibirAlerta("Usuário ou senha inválidos" , "Alerta!");
+				}
+			}
+			
+			//
+			
+			protected function operAdmRadio_clickHandler(event:MouseEvent):void
+			{					
+				estabelecimentoHbox.visible = false;
+				estabelecimentoHbox.includeInLayout = false;
+			}
+			
+			private function onResultListarEmpresasCadastradas(event:ResultEvent):void{
+				
+				estabelecimentoHbox.visible = true;
+				estabelecimentoHbox.includeInLayout = true;
+				
+				if(event.result != null){
+					estabeleciementoCbx.dataProvider = event.result;
+				}
+				
+			}
+			
+			protected function clienteRadio_clickHandler(event:MouseEvent):void
+			{				
+				serviceController.listarEmpresasCadastradas();
+			}
+			
+			
+			
+			protected function sairBtn_clickHandler(event:MouseEvent):void
+			{	
+				
+				//if(loginCanvas.parent == digPrincipal){
+				//}
+				//digPrincipal.removeChild(loginCanvas);
+				
+				loginText.text = '';
+				senhaText.text = '';
+				operAdmRadio.selected = true;
+				usuarioBean = new UsuarioBean();
+				estabelecimentoHbox.visible = false;
+				estabelecimentoHbox.includeInLayout = false;
+				
+				digCanvas.percentHeight = 0;
+				digCanvas.percentWidth = 0;
+				digPrincipal.percentHeight = 0;
+				digPrincipal.percentWidth = 0;
+				
+				//loginCanvas.addChild(amb);
+				
+				loginCanvas.percentHeight = 100;
+				loginCanvas.percentWidth = 100;
+			}
+			
+		]]>
+	</mx:Script>
+	
+	<mx:RemoteObject destination="service" invoke="{ProgressBarHelper.openProgressBar(this)}" id="serviceController" showBusyCursor="true" fault="ProgressBarHelper.erro(event, null);ProgressBarHelper.removeProgressBar()">
+		
+		<mx:method name="loginUser" result="onResultLoginUser(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="listarEmpresasCadastradas" result="onResultListarEmpresasCadastradas(event);ProgressBarHelper.removeProgressBar()"/>
+		
+	</mx:RemoteObject>
+	
+	<mx:Canvas width="0%" height="0%" resizeEffect="resizeEffect" id="digPrincipal" x="0" y="0" >
+		<mx:ApplicationControlBar x="0" y="0" width="100%" height="81">		
+			<mx:HBox x="0" width="800" verticalAlign="middle">	
+				<mx:Image horizontalAlign="left" source="img/lavaJato.png"/>
+				<mx:HBox x="50" width="400" horizontalAlign="right">
+					<mx:Label id="descTela" fontSize="20" textAlign="right"/>
+				</mx:HBox>
+				<mx:HBox width="100%">
+					<mx:Label id="usuarioTxt" width="100%"/>
+				</mx:HBox>
+			</mx:HBox>					
+			<mx:HBox  width="70" horizontalAlign="right">
+				<mx:Image source="img/off.png" toolTip="Sair" id="sairBtn" buttonMode="true" click="sairBtn_clickHandler(event)"/>
+			</mx:HBox>			
+		</mx:ApplicationControlBar>
+		<mx:ApplicationControlBar x="0" y="85" width="100%" height="40">		
+			<mx:MenuBar labelField="@label" dataProvider="{menuBarCollection}" itemClick="itemClickHandler(event);" 
+						x="10" y="58"/>
+		</mx:ApplicationControlBar>
+		
+	</mx:Canvas>
+	
+	<mx:Canvas x="0" y="0" width="100%" height="100%" resizeEffect="resizeEffect" id="loginCanvas">
+		
+		<mx:VBox width="35%" height="10%" y="220" x="200">
+			<mx:Label text="Bem-vindo ao Lava a Jato Digital." fontWeight="bold" fontSize="18" color="#F0FFF0"/>
+			<mx:Label text="Através dessa ferramenta, você poderá agendar" fontWeight="bold" fontSize="16" color="#F0FFF0"/>
+			<mx:Label text="diversos serviços para o seu veículo." fontWeight="bold" fontSize="16" color="#F0FFF0"/>
+		</mx:VBox>
+		
+		<mx:VBox x="660" y="130" height="40%" width="30%" cornerRadius="15"  borderStyle="solid" backgroundColor="#F0FFF0">
+			
+			<!--mx:HBox width="100%" height="3%" horizontalAlign="center">
+			<mx:HRule width="403"/>
+			</mx:HBox-->
+			<mx:HBox width="100%" height="20%">
+				
+			</mx:HBox>
+			<mx:HBox width="100%" height="30%" >
+				<mx:VBox height="30%" width="60%">
+					<mx:HBox width="100%" height="16%" verticalAlign="middle" horizontalAlign="right">
+						<mx:Label text="Login" fontWeight="bold"/>
+					</mx:HBox>
+					<mx:HBox width="100%" height="16%" verticalAlign="middle" horizontalAlign="right">
+						<mx:Label text="Senha" fontWeight="bold"/>
+					</mx:HBox>
+				</mx:VBox>
+				<mx:VBox height="100%" width="100%">
+					<mx:HBox width="100%">
+						<mx:TextInput id="loginText"/>
+					</mx:HBox>
+					<mx:HBox width="100%">
+						<mx:TextInput id="senhaText"  displayAsPassword="true"/>
+					</mx:HBox>
+					<mx:VBox>
+						<mx:RadioButton id="operAdmRadio" selected="true" label="Administrador/Funcionário" fontWeight="bold" click="operAdmRadio_clickHandler(event)"/>	
+						<mx:RadioButton id="clienteRadio"  label="Cliente" fontWeight="bold" click="clienteRadio_clickHandler(event)"/>						
+					</mx:VBox>
+				</mx:VBox>
+			</mx:HBox>
+			<mx:VBox id="estabelecimentoHbox" includeInLayout="false" visible="false">
+				<mx:Label text="Estabelecimento:" fontWeight="bold"/>
+				<mx:ComboBox id="estabeleciementoCbx" labelField="empresaStr"/>
+			</mx:VBox>
+			<mx:HBox width="100%" horizontalAlign="center">
+				<mx:Button label="Entrar" id="loginUserPassword" click="loginUser()"/>
+				<!--mx:Button label="PL maquina" click="{serviceController.importarPl()}"/-->
+			</mx:HBox>
+			<!--mx:HBox width="100%" horizontalAlign="center">
+			<mx:HRule width="403" height="6"/>
+			</mx:HBox-->
+		</mx:VBox>
+	</mx:Canvas>
+	
+	<mx:Canvas width="100%" height="100%" resizeEffect="resizeEffect" id="digCanvas" x="0" y="135" />
+	
+</mx:Application>

@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" backgroundAlpha="0.70" backgroundColor="#FFFFFF" xmlns:control="br.com.thinklab.util.control.*">
+	<mx:Script>
+		<![CDATA[
+			import bean.ServicosBean;
+			import bean.UsuarioBean;
+			import bean.TipoVeiculoBean;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.ValidationResultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.validators.Validator;
+			
+			import util.AlertaUtil;
+			import util.ProgressBarHelper;
+			private var myValidators: Array;
+			private var servicos:ServicosBean = new ServicosBean();
+			private var idEmpresa:Number = 15;
+			private var usuarioBean:UsuarioBean;
+
+			public function init(usuario:UsuarioBean):void{
+				// Array de campos a validar.
+				myValidators = new Array();
+				myValidators.push(campoDescricao);
+				myValidators.push(campoTipoVeiculo);
+				myValidators.push(campoValor);
+				this.usuarioBean = usuario;
+				
+				serviceController.findTipoVeiculo();
+				
+				serviceController.findAllServicos(usuarioBean.idEmpresa);
+				
+				servicosGrid.addEventListener("REMOVERSERVICO", removerServico);
+			}	
+			
+			private function removerServico(ev: Event): void{
+				Alert.yesLabel = "Sim";
+				Alert.noLabel = "Não";
+				Alert.show("Deseja realmente apagar?", "Apagar", 3, this, alertClickHandler);
+				
+			}
+			
+			private function alertClickHandler (event:CloseEvent):void{
+				if (event.detail==Alert.YES) {				
+				servicos = ServicosBean(servicosGrid.selectedItem);
+				
+				serviceController.removerServico(servicos);
+				
+				}
+				
+			}
+			
+			private function onResultRemoverServico(event:ResultEvent):void{
+				if(event.result == true){
+					AlertaUtil.exibirAlertaOperacaoOk();
+					
+					ArrayCollection(servicosGrid.dataProvider).removeItemAt(servicosGrid.selectedIndex);
+				}else{
+					AlertaUtil.exibirAlertaOperacaoErro();
+				}
+			}
+			
+			private function onResultFindAllServicos(event:ResultEvent):void{
+				if(event.result != null){
+					servicosGrid.dataProvider = event.result;
+				}
+				
+			}		
+			
+
+			protected function salvarBtn_clickHandler(event:MouseEvent):void
+			{				
+					if(isCamposValidos()){
+						servicos.idEmpresa = usuarioBean.idEmpresa; // REtirar ao implementar login
+						servicos.descricao = descricaoTxt.text.toUpperCase();
+						servicos.idTipoVeiculo = TipoVeiculoBean(tipoVeiculoCbx.selectedItem).idTipoVeiculo;
+						servicos.tempoExecucao = formatarHorario(horasExecucao.value, minutosExecucao.value);
+						//if(isNaN(Number(valorTxt.text))){
+							//AlertaUtil.exibirAlerta('Formato de valor incorreto.', 'Erro!');
+							//return;
+						//}
+						servicos.valor = valorTxt.text;
+						
+						serviceController.salvarServico(servicos);
+					}else{
+						return;
+					}				
+			}
+			
+			private function onResultSalvarServico(event:ResultEvent):void{
+				if(event.result == true){
+					AlertaUtil.exibirAlertaOperacaoOk();
+					this.limparCampos();
+					serviceController.findAllServicos(usuarioBean.idEmpresa);
+				}else{
+					AlertaUtil.exibirAlertaOperacaoErro();
+				}
+			}
+			
+			private function limparCampos():void{
+					servicos = new ServicosBean();
+					descricaoTxt.text = '',
+					tipoVeiculoCbx.selectedIndex = -1;
+					horasExecucao.value = 0;
+					minutosExecucao.value = 0;
+					valorTxt.text = '0.00';				
+			}
+			
+			private function formatarHorario(horas:Number, minutos:Number):String{
+				var horasFormatada:String = horas.toString();
+				var minutosFormatado:String = minutos.toString();
+				
+				if(horas.toString().length == 1){
+					horasFormatada = '0' + horas;
+				}if(minutos.toString().length == 1){
+					minutosFormatado = '0' + minutos;
+				}
+				
+				return horasFormatada + ':' + minutosFormatado;
+				
+			}
+			
+			private function isCamposValidos():Boolean{
+				
+				var validatorErrorArray: Array = Validator.validateAll(myValidators);;
+				var isValidForm: Boolean = validatorErrorArray.length == 0;
+				
+				if (isValidForm) {
+					
+					return true;					
+					
+				} else {
+					var err: ValidationResultEvent;
+					var errorMessageArray: Array = [];
+					for each (err in validatorErrorArray) {
+						var errField: String = FormItem(err.currentTarget.source.parent).label
+						errorMessageArray.push(errField + " Este campo é obrigatório.");
+					}
+					Alert.show(errorMessageArray.join("\n\n"), "Formulário Inválido", Alert.OK);
+					//return false;
+				}
+				return false;
+			}
+			
+			private function onResultFindTipoVeiculo(event:ResultEvent):void{
+				if(event.result != null){
+					tipoVeiculoCbx.dataProvider = event.result;
+				}else{
+					AlertaUtil.exibirAlerta('Ocorreu um erro ao buscar o tipo de veículo', 'Erro!');
+				}
+			}
+
+
+			protected function servicosGrid_doubleClickHandler(event:MouseEvent):void
+			{
+				if(servicosGrid.selectedItem != null){
+					servicos = ServicosBean(servicosGrid.selectedItem);
+					descricaoTxt.text = servicos.descricao;
+					this.fixarTipoVeiculo();
+					horasExecucao.value = this.obterHoras(servicos.tempoExecucao);
+					minutosExecucao.value = this.obterMinutos(servicos.tempoExecucao);
+					valorTxt.text = servicos.valor;
+				}
+			}		
+			
+			
+			private function fixarTipoVeiculo():void{
+				var tipo:ArrayCollection = ArrayCollection(tipoVeiculoCbx.dataProvider);				
+				for(var i:int=0; i < tipo.length; i++){					
+					var tipoAux:TipoVeiculoBean = TipoVeiculoBean(tipo.getItemAt(i));
+					if(tipoAux.idTipoVeiculo == ServicosBean(servicosGrid.selectedItem).idTipoVeiculo){
+						tipoVeiculoCbx.selectedIndex = i;
+						break;
+					}
+				}
+			}
+			
+			private function obterHoras(horasStr:String):Number{
+				var aux:Array = horasStr.split(":");
+				var horas:Number = Number(aux[0]);
+				return horas;
+			}
+			
+			private function obterMinutos(minStr:String):Number{
+				var aux:Array = minStr.split(":");
+				var minutos:Number = Number(aux[1]);
+				return minutos;
+			}
+
+
+			protected function novoBtn_clickHandler(event:MouseEvent):void
+			{
+				limparCampos();
+			}
+			
+
+		]]>
+		
+	</mx:Script>
+	
+	<mx:StringValidator id="campoDescricao" requiredFieldError="Este campo é obrigatório!" required="true" source="{descricaoTxt}" property="text" />
+	<mx:NumberValidator id="campoTipoVeiculo" source="{tipoVeiculoCbx}" lowerThanMinError="Este campo  obrigatório." property="selectedIndex" minValue="0" />
+	<mx:StringValidator id="campoValor" requiredFieldError="Este campo é obrigatório!" required="true" source="{valorTxt}" property="text" />
+	
+	<mx:RemoteObject destination="service" invoke="{ProgressBarHelper.openProgressBar(this)}" id="serviceController" showBusyCursor="true" fault="ProgressBarHelper.erro(event, null);ProgressBarHelper.removeProgressBar()">
+		
+		<mx:method name="findTipoVeiculo" result="onResultFindTipoVeiculo(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="findAllServicos" result="onResultFindAllServicos(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="salvarServico" result="onResultSalvarServico(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="removerServico" result="onResultRemoverServico(event);ProgressBarHelper.removeProgressBar()"/>
+		
+	</mx:RemoteObject>
+	
+	<mx:NumberFormatter id="numberFormatter"
+						precision="2"
+						rounding="none" />
+	
+	<mx:VBox height="100%" width="100%">
+	<mx:HBox width="100%" horizontalAlign="center">
+		<mx:Form cornerRadius="5" borderColor="#1E90FF" borderStyle="solid">
+			<mx:FormHeading label="Serviços:" textAlign="left" width="100%"/>
+			<mx:FormItem label="Descrição:" required="true">
+				<mx:TextInput  id="descricaoTxt" maxChars="30"/>			
+			</mx:FormItem>
+			<mx:FormItem label="Tipo Veículo:" required="true">
+				<mx:ComboBox id="tipoVeiculoCbx" prompt="Selecione" labelField="descricao"/>			
+			</mx:FormItem>				
+					<mx:HBox >
+						<mx:Label text="Tempo Execução: *"/>
+						<mx:NumericStepper id="horasExecucao" minimum="0" maximum="23" toolTip="Horas"/>
+						<mx:Label text=":"/>
+						<mx:NumericStepper id="minutosExecucao" minimum="0" maximum="59" toolTip="Minutos"/>
+						</mx:HBox>
+			<mx:FormItem label="Valor:" required="true">				
+				
+				<control:DecimalInput editable="true" id="valorTxt" maxChars="10" width="70" precision="2" currencyFormat="br" useThousandsSeparator="true" />
+				<!--mx:TextInput id="valorTxt"
+							  text="0.00"							  
+							  restrict="[0-9.\]"
+							  maxChars="6" /-->
+			</mx:FormItem>			
+			</mx:Form>		
+		</mx:HBox>
+	
+		<mx:HBox width="100%" horizontalAlign="center">
+		<mx:Button id="salvarBtn" label="Salvar" click="salvarBtn_clickHandler(event)"/>			
+		<mx:Button label="Novo" id="novoBtn" click="novoBtn_clickHandler(event)"/>
+		
+		</mx:HBox>
+		<mx:HBox width="100%" height="100%">
+			<mx:DataGrid width="100%" height="100%" id="servicosGrid" doubleClickEnabled="true" doubleClick="servicosGrid_doubleClickHandler(event)" toolTip="Clique duas vezes para alterar.">
+				<mx:columns>
+					<mx:DataGridColumn headerText="Descrição" dataField="descricao"/>
+					<mx:DataGridColumn headerText="Tipo de Veículo" dataField="descricaoTipoVeiculo"/>
+					<mx:DataGridColumn headerText="Tempo de Execução" dataField="tempoExecucao"/>
+					<mx:DataGridColumn headerText="Valor" dataField="valor"/>							
+					<mx:DataGridColumn headerText="Excluir">
+						<mx:itemRenderer> 
+							<mx:Component>
+								<mx:VBox verticalGap="2" horizontalAlign="center">
+									<mx:Image source="img/remover.png"  width="15" buttonMode="true" toolTip="Clique para excluir o serviço." height="15" click="{dispatchEvent(new Event('REMOVERSERVICO', true))}"/>
+								</mx:VBox>
+							</mx:Component> 
+						</mx:itemRenderer>
+						</mx:DataGridColumn>
+				</mx:columns>
+			</mx:DataGrid>	
+			
+		</mx:HBox>
+	
+		
+			
+		</mx:VBox>
+	
+</mx:Canvas>

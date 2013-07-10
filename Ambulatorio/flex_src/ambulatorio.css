@@ -1,0 +1,179 @@
+/* CSS file */
+
+/*
+Application{
+	backgroundColor: #ffffff;
+	backgroundGradientColors: #ffffff, #ffffff;
+}
+
+ApplicationControlBar{
+	backgroundColor: #f59e08;
+	borderStyle: solid;
+	fillAlphas: 0, 0;
+	borderThickness: 2;
+}
+
+DataGrid {
+	rollOverColor: #ff9900;
+	selectionColor: #cccccc;
+}
+Alert {
+	color : #124332;
+	background-color: #ffffff;
+	header-colors : #ffcc33, #ffcc33;
+	header-height:19;
+	drop-shadow-enabled: true;
+	drop-shadow-color :#ffcc33;
+	corner-radius :6;
+	border-style :solid;
+	border-thickness: 1;
+	border-color : #ffcc33;
+	footer-colors : #ffcc33, #ffffff;
+	title-style-name : "title";
+}*/
+Tree {
+	folderClosedIcon: ClassReference(null);
+	folderOpenIcon: ClassReference(null);
+}
+Application {
+	backgroundColor: #000000;
+	backgroundGradientColors: #ffffff, #ffffff;
+	backgroundGradientAlphas: 1, 1;
+	color: #0b333c;
+}
+
+ApplicationControlBar {
+	fillAlphas: 0.96, 0;
+	fillColors: #ffffff, #436EEE;
+	backgroundColor: #6495ED;
+	backgroundAlpha: 1;
+	z-index: 1;
+}
+
+/*
+Button {
+	fillAlphas: 1, 1, 1, 1;
+	fillColors: #cccccc, #cccccc, #cccccc, #cccccc;
+	themeColor: #cccccc;
+	
+}
+*/
+MenuBar {
+	cornerRadius: 6;
+	fillColors: #ffffff, #e6eeee;
+	fontWeight: bold;
+	textAlign: left;
+	textIndent: 0;
+	
+	rollOverColor: #ECECD4;
+	textRollOverColor: black;
+	textSelectedColor: black;
+}
+
+Button {
+	cornerRadius: 7;
+	textIndent: 0;
+	paddingLeft: 3;
+	paddingRight: 3;
+	paddingTop: 0;
+	paddingBottom: 0;
+	letterSpacing: 0;
+	fillColors: #e6eeee, #6495ED;
+	color: #000000;
+	textRollOverColor: #0b333c;
+	fontSize: 11;
+}
+
+
+TextInput {
+	borderStyle: solid;
+	borderColor: #cccccc;
+	borderThickness: 1;
+	cornerRadius: 0;
+	theme-color: #cccccc;
+}
+
+HRule {
+	strokeColor: #000000;
+	shadowColor: #000000;
+}
+VRule {
+	strokeColor: #000000;
+	shadowColor: #000000;
+}
+
+Panel {
+	borderColor: #cccccc;
+	borderAlpha: 1;
+	borderThicknessLeft: 14;
+	borderThicknessTop: 0;
+	borderThicknessBottom: 5;
+	borderThicknessRight: 14;
+}
+ModuleTitleWindow {
+	
+	headerColors: #ffffff,  #9ab3d4;
+	borderColor: #9ab3d4;
+	borderAlpha: 1;
+	borderThicknessLeft: 14;
+	borderThicknessTop: 0;
+	borderThicknessBottom: 5;
+	borderThicknessRight: 14;
+	
+}
+
+Alert {
+	color : #124332;
+	background-color: #ffffff;
+	headerColors: #ffffff,  #9ab3d4;
+	header-height:19;
+	drop-shadow-enabled: true;
+	drop-shadow-color :#cccccc;
+	corner-radius :6;
+	border-style :solid;
+	border-thickness: 1;
+	border-color : #cccccc;
+	footer-colors : #cccccc, #ffffff;
+	title-style-name : "title";
+}
+TextArea {
+	borderColor: #cccccc;
+	theme-color: #cccccc;
+}
+
+DataGrid {
+	headerColors: #ffffff,  #9ab3d4;
+	headerStyleName: "mydataGridHeaderStyle";
+	rollOverColor: #cccccc;
+	selectionColor: #cccccc;	
+}
+
+AdvancedDataGrid{
+	headerColors: #cccccc, #cccccc;
+	headerStyleName: "mydataGridHeaderStyle";
+	rollOverColor: #cccccc;
+	selectionColor: #cccccc;
+}
+
+List {
+	
+	rollOverColor: #cccccc;
+	selectionColor: #cccccc;
+	borderColor: #cccccc;
+}
+
+.mydataGridHeaderStyle {
+	color: #000000;
+	fontWeight: bold;
+	fontStyle: normal;
+	textDecoration: none;
+	letterSpacing: 0;
+}
+
+PrintDataGrid {
+	headerColors: #cccccc, #cccccc;
+	rollOverColor: #cccccc;
+	selectionColor: #cccccc;
+	headerStyleName: "mydataGridHeaderStyle";
+}
+

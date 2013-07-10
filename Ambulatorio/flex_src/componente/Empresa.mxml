@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" backgroundAlpha="0.70" backgroundColor="#FFFFFF">
+	<mx:Script>
+		<![CDATA[
+			import bean.EmpresaBean;
+			import bean.UsuarioBean;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.ValidationResultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.validators.Validator;
+			
+			import util.AlertaUtil;
+			import util.EstadosUtil;
+			import util.ProgressBarHelper;
+			private var myValidators: Array;
+			private var empresaBean:EmpresaBean = new EmpresaBean();
+			private var usuarioBean:UsuarioBean;
+			
+			public function init(usuario:UsuarioBean):void{
+		
+				// Array de campos a validar.
+				myValidators = new Array();
+				myValidators.push(campoRazaoSocial);
+				myValidators.push(campoCnpj);
+				myValidators.push(campoTelefone);
+				myValidators.push(campoEmail);
+				myValidators.push(campoEndereco);
+				myValidators.push(campoCidade);
+				myValidators.push(campoEstadoCbx);
+				this.usuarioBean = usuario;
+				
+				serviceController.listarEmpresasCadastradas();
+				
+			}
+			
+			private function onResultListarEmpresasCadastradas(event:ResultEvent):void{
+				
+				if(event.result != null){
+				empresaGrid.dataProvider = event.result;					
+				}
+			}
+			
+			
+
+			// Método que envia os dados para salvar.
+			protected function salvarBtn_clickHandler(event:MouseEvent):void
+			{
+				if(isCamposValidos()){
+					
+					empresaBean.razaoSocial = razaoSocialTxt.text.toUpperCase();
+					empresaBean.cnpj = cnpjTxt.text;
+					empresaBean.telefone = telefoneTxt.text;
+					empresaBean.eMail = emailTxt.text;
+					empresaBean.endereco = enderecoTxt.text.toUpperCase();
+					empresaBean.cidade = cidadeTxt.text.toUpperCase();
+					empresaBean.estado = estadoCbx.selectedLabel;
+					
+					this.salvar_HorarioFuncionamento();
+					
+					serviceController.salvarAtualizarEmpresa(empresaBean);
+					
+				}else{
+					return;
+				}
+			}
+			
+			private function salvar_HorarioFuncionamento():void{
+				
+				//empresaBean.funcionamentoBeans = new ArrayCollection;
+				//var hBean:HorarioFuncionamentoBean = new HorarioFuncionamentoBean();
+				
+				//Horario de Funcionamento Segunda à sexta:
+				//hBean.diasSemana = 'Seg. à sexta';				
+				empresaBean.horarioDeSegSexta = formatarHorario(deHorasSegSexta.value, deMinutosSegSexta.value);
+				empresaBean.horarioAteSegSexta = formatarHorario(ateHorasSegSexta.value, ateMinutosSegSexta.value);
+				//empresaBean.funcionamentoBeans.addItem(hBean);
+				
+				//Horario de Funcionamento Sábado:
+				//hBean = new HorarioFuncionamentoBean();
+				//hBean.diasSemana = 'Sábado';
+				empresaBean.horarioDeSabado = formatarHorario(deHorasSabado.value, deMinutosSabado.value);
+				empresaBean.horarioAteSabado = formatarHorario(ateHorasSabado.value, ateMinutosSabado.value);
+				//empresaBean.funcionamentoBeans.addItem(hBean);
+				
+				//Horario de Funcionamento Domingo:
+				//hBean = new HorarioFuncionamentoBean();
+				//hBean.diasSemana = 'Domingo';
+				empresaBean.horarioDeDomingo = formatarHorario(deHorasDomingo.value, deMinutosDomingo.value);
+				empresaBean.horarioAteDomingo = formatarHorario(ateHorasDomingo.value, ateMinutosDomingo.value);
+				//empresaBean.funcionamentoBeans.addItem(hBean);
+				
+				
+			}
+			
+			private function formatarHorario(horas:Number, minutos:Number):String{
+				var horasFormatada:String = horas.toString();
+				var minutosFormatado:String = minutos.toString();
+				
+				if(horas.toString().length == 1){
+					horasFormatada = '0' + horas;
+				}if(minutos.toString().length == 1){
+					minutosFormatado = '0' + minutos;
+				}
+				
+				return horasFormatada + ':' + minutosFormatado;
+				
+			}
+			
+			private function onResultSalvarAtualizarEmpresa(event:ResultEvent):void{				
+				if(event.result == true){
+					AlertaUtil.exibirAlertaOperacaoOk();
+					this.limparCampos();
+					serviceController.listarEmpresasCadastradas();
+				}else{
+					AlertaUtil.exibirAlertaOperacaoErro();
+				}
+			}
+			
+			private function limparCampos():void{
+				empresaBean = new EmpresaBean();
+				razaoSocialTxt.text = "";
+				cnpjTxt.text = "";
+				telefoneTxt.text = "";
+				emailTxt.text = "";
+				enderecoTxt.text = "";
+				cidadeTxt.text = "";
+				estadoCbx.selectedIndex = -1;
+				deHorasSegSexta.value = 0;
+				deMinutosSegSexta.value = 0;
+				ateHorasSegSexta.value = 0;
+				ateMinutosSegSexta.value = 0;
+				deHorasSabado.value = 0;
+				deMinutosSabado.value = 0;
+				ateHorasSabado.value = 0;
+				ateMinutosSabado.value = 0;
+				deHorasDomingo.value = 0;
+				deMinutosDomingo.value = 0;
+				ateHorasDomingo.value = 0;
+				ateMinutosDomingo.value = 0;
+			}
+			
+			private function isCamposValidos():Boolean{
+				
+				var validatorErrorArray: Array = Validator.validateAll(myValidators);;
+				var isValidForm: Boolean = validatorErrorArray.length == 0;
+				
+				if (isValidForm) {
+											
+					return true;					
+					
+				} else {
+					var err: ValidationResultEvent;
+					var errorMessageArray: Array = [];
+					for each (err in validatorErrorArray) {
+						var errField: String = FormItem(err.currentTarget.source.parent).label
+						errorMessageArray.push(errField + " Este campo é obrigatório.");
+					}
+					Alert.show(errorMessageArray.join("\n\n"), "Formulário Inválido", Alert.OK);
+					//return false;
+				}
+				return false;
+			}
+
+
+			protected function empresaGrid_doubleClickHandler(event:MouseEvent):void
+			{
+				if(empresaGrid.selectedItem != null){
+					//empresaBean = new EmpresaBean();
+					empresaBean = EmpresaBean (empresaGrid.selectedItem);					
+					
+					razaoSocialTxt.text = empresaBean.razaoSocial;
+					cnpjTxt.text = empresaBean.cnpj;
+					telefoneTxt.text = empresaBean.telefone;
+					emailTxt.text = empresaBean.eMail;
+					enderecoTxt.text = empresaBean.endereco;
+					cidadeTxt.text = empresaBean.cidade;
+					this.fixarEstado();
+					deHorasSegSexta.value = this.obterHoras(empresaBean.horarioDeSegSexta);
+					deMinutosSegSexta.value = this.obterMinutos(empresaBean.horarioDeSegSexta);
+					ateHorasSegSexta.value = this.obterHoras(empresaBean.horarioAteSegSexta);
+					ateMinutosSegSexta.value = this.obterMinutos(empresaBean.horarioAteSegSexta);
+					deHorasSabado.value = this.obterHoras(empresaBean.horarioDeSabado);
+					deMinutosSabado.value = this.obterMinutos(empresaBean.horarioDeSabado);
+					ateHorasSabado.value = this.obterHoras(empresaBean.horarioAteSabado);
+					ateMinutosSabado.value = this.obterMinutos(empresaBean.horarioAteSabado);
+					deHorasDomingo.value = this.obterHoras(empresaBean.horarioDeDomingo);
+					deMinutosDomingo.value = this.obterMinutos(empresaBean.horarioDeDomingo);
+					ateHorasDomingo.value = this.obterHoras(empresaBean.horarioAteDomingo);
+					ateMinutosDomingo.value = this.obterMinutos(empresaBean.horarioAteDomingo);
+										
+					
+				} //08:15:00
+			}
+			
+			// var str:String = "ab";
+			//var results:Array = str.split(/a*?/); // results == ["","b"]
+			
+			
+			private function obterHoras(horasStr:String):Number{
+				var aux:Array = horasStr.split(":");
+				var horas:Number = Number(aux[0]);
+				return horas;
+			}
+			
+			private function obterMinutos(minStr:String):Number{
+				var aux:Array = minStr.split(":");
+				var minutos:Number = Number(aux[1]);
+				return minutos;
+			}
+			
+			private function fixarEstado():void{
+				var estado:ArrayCollection = ArrayCollection(estadoCbx.dataProvider);
+				for(var i:int=0; i < estado.length; i++){					
+					var estadoAux:Object = Object(estado.getItemAt(i));
+					if(empresaBean.estado == estadoAux.estado){
+						estadoCbx.selectedIndex = i;
+						break;
+					}
+			}
+			
+			/*
+			private function fixContaContabilCliInter():void{
+				var cocList:ArrayCollection = ArrayCollection(contaContabilCbx.dataProvider);
+				for(var i:int=0; i < cocList.length; i++){
+					var cocInter:ContaContabilBean = ContaContabilBean(cocList.getItemAt(i));
+					if(cocInter.sigla == '11'){
+						contaContabilCbx.selectedIndex = i;
+						break;
+					}
+				}
+			}*/
+
+			}
+
+			protected function novoBtn_clickHandler(event:MouseEvent):void
+			{
+				limparCampos();
+			}
+
+		]]>
+		
+	</mx:Script>
+	
+	<mx:StringValidator id="campoRazaoSocial" requiredFieldError="Este campo é obrigatório!" required="true" source="{razaoSocialTxt}" property="text" />
+	<mx:StringValidator id="campoCnpj" requiredFieldError="Este campo é obrigatório!" required="true" source="{cnpjTxt}" property="text" />
+	<mx:StringValidator id="campoTelefone" requiredFieldError="Este campo é obrigatório!" required="true" source="{telefoneTxt}" property="text" />
+	<mx:StringValidator id="campoEmail" requiredFieldError="Este campo é obrigatório!" required="true" source="{emailTxt}" property="text" />
+	<mx:StringValidator id="campoEndereco" requiredFieldError="Este campo é obrigatório!" required="true" source="{enderecoTxt}" property="text" />
+	<mx:StringValidator id="campoCidade" requiredFieldError="Este campo é obrigatório!" required="true" source="{cidadeTxt}" property="text" />
+	<mx:NumberValidator id="campoEstadoCbx" source="{estadoCbx}" lowerThanMinError="Este campo  obrigatório." property="selectedIndex" minValue="0" />
+	
+	<mx:RemoteObject destination="service" invoke="{ProgressBarHelper.openProgressBar(this)}" id="serviceController" showBusyCursor="true" fault="ProgressBarHelper.erro(event, null);ProgressBarHelper.removeProgressBar()">
+		
+		<mx:method name="salvarAtualizarEmpresa" result="onResultSalvarAtualizarEmpresa(event);ProgressBarHelper.removeProgressBar()"/>
+		<mx:method name="listarEmpresasCadastradas" result="onResultListarEmpresasCadastradas(event);ProgressBarHelper.removeProgressBar()"/>
+	
+	</mx:RemoteObject>
+	
+	<mx:HBox width="100%" horizontalAlign="center">
+	<mx:Form cornerRadius="5" borderColor="#1E90FF" borderStyle="solid">
+		<mx:FormHeading label="Dados da empresa:" textAlign="left" width="100%"/>
+		<mx:FormItem label="Razão Social:" required="true">
+			<mx:TextInput  id="razaoSocialTxt" maxChars="100"/>			
+		</mx:FormItem>
+		<mx:FormItem label="CNPJ:" required="true">
+			<mx:TextInput  id="cnpjTxt" maxChars="15"/>			
+		</mx:FormItem>
+		<mx:FormItem label="Telefone:" required="true">
+			<mx:TextInput  id="telefoneTxt" maxChars="15" restrict="0-9" toolTip="Digite apenas numeros."/>			
+		</mx:FormItem>
+		<mx:FormItem label="E-mail:" required="true">
+			<mx:TextInput  id="emailTxt" maxChars="30"/>			
+		</mx:FormItem>
+		<mx:FormItem label="Endereço:" required="true">
+			<mx:TextInput  id="enderecoTxt" maxChars="150"/>			
+		</mx:FormItem>
+		<mx:FormItem label="Cidade:" required="true">
+			<mx:TextInput  id="cidadeTxt" maxChars="25"/>			
+		</mx:FormItem>
+		<mx:FormItem label="Estado:" required="true">
+			<mx:ComboBox id="estadoCbx" prompt="Selecione" dataProvider="{EstadosUtil.obterListaEstados()}" labelField="estado"/>						
+		</mx:FormItem>		
+	</mx:Form>
+		<mx:Form height="100%" cornerRadius="5" borderColor="#1E90FF" borderStyle="solid">
+			<mx:FormHeading label="Funcionamento:" textAlign="center"/>
+			<mx:FormItem>
+				<mx:HBox >
+					<mx:Label text="Seg. á Sexta: *"/>
+					<mx:NumericStepper id="deHorasSegSexta" minimum="0" maximum="23"  toolTip="Horas"/>
+					<mx:Label text=":"/>
+					<mx:NumericStepper id="deMinutosSegSexta" minimum="0" maximum="59" toolTip="Minutos"/>
+					<!--mx:TextInput width="60" /-->
+					<mx:Label text="até"/>
+					<mx:NumericStepper id="ateHorasSegSexta" minimum="0" maximum="23"  toolTip="Horas"/>
+					<mx:Label text=":"/>
+					<mx:NumericStepper id="ateMinutosSegSexta" minimum="0" maximum="59" toolTip="Minutos"/>
+					<!--mx:TextInput width="60"/-->
+				</mx:HBox>
+			</mx:FormItem>
+			<mx:FormItem>
+				<mx:HBox  width="100%">
+					<mx:Label text="Sábado: *        "/>
+					<mx:NumericStepper id="deHorasSabado" minimum="0" maximum="23"  toolTip="Horas"/>
+					<mx:Label text=":"/>
+					<mx:NumericStepper id="deMinutosSabado" minimum="0" maximum="59" toolTip="Minutos"/>
+					<mx:Label text="até"/>
+					<mx:NumericStepper id="ateHorasSabado" minimum="0" maximum="23"  toolTip="Horas"/>
+					<mx:Label text=":"/>
+					<mx:NumericStepper id="ateMinutosSabado" minimum="0" maximum="59" toolTip="Minutos"/>
+				</mx:HBox>
+			</mx:FormItem>
+			<mx:FormItem>
+				<mx:HBox >
+					<mx:Label text="Domingo: *      "/>
+					<mx:NumericStepper id="deHorasDomingo" minimum="0" maximum="23"  toolTip="Horas"/>
+					<mx:Label text=":"/>
+					<mx:NumericStepper id="deMinutosDomingo" minimum="0" maximum="59" toolTip="Minutos"/>
+					<mx:Label text="até"/>
+					<mx:NumericStepper id="ateHorasDomingo" minimum="0" maximum="23"  toolTip="Horas"/>
+					<mx:Label text=":"/>
+					<mx:NumericStepper id="ateMinutosDomingo" minimum="0" maximum="59" toolTip="Minutos"/>
+				</mx:HBox>
+			</mx:FormItem>
+		</mx:Form>	
+	</mx:HBox>
+	<mx:HBox width="100%" y="255" horizontalAlign="center">
+		<mx:Button label="Salvar" id="salvarBtn" toolTip="Clique para: Salvar." click="salvarBtn_clickHandler(event)"/>
+		<mx:Button label="Novo" id="novoBtn" click="novoBtn_clickHandler(event)"/>
+	</mx:HBox>
+	<mx:HBox x="0" y="280" width="100%" height="100%">
+	<mx:DataGrid width="100%" height="100%" id="empresaGrid" doubleClickEnabled="true" doubleClick="empresaGrid_doubleClickHandler(event)" toolTip="Clique duas vezes para alterar.">
+		<mx:columns>
+			<mx:DataGridColumn headerText="Razão Social" dataField="razaoSocial"/>
+			<mx:DataGridColumn headerText="CNPJ" dataField="cnpj"/>
+			<mx:DataGridColumn headerText="Telefone" dataField="telefone"/>
+			<mx:DataGridColumn headerText="E-mail" dataField="eMail"/>
+			<mx:DataGridColumn headerText="Endereço" dataField="endereco"/>
+			<mx:DataGridColumn headerText="Cidade" dataField="cidade"/>
+			<mx:DataGridColumn headerText="Estado" dataField="estado"/>			
+		</mx:columns>
+	</mx:DataGrid>
+	
+	</mx:HBox>
+	
+	
+	
+	
+</mx:Canvas>
